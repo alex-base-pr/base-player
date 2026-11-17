@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>BMW iDrive 7 — Base Player emulator</title>
+<style>
+  :root { --chrome: #05070b; --chrome2: #0a0e14; --ink: #e8edf3; --muted: #8c9bb0; --line: #141b26; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; background: #000; color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, sans-serif; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 18px 14px 40px; }
+  .frame { background: #000; border-radius: 16px; overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0,0,0,.6), 0 0 0 1px #11161f inset; }
+
+  /* top status bar */
+  .statusbar { display: flex; align-items: center; justify-content: space-between;
+    background: linear-gradient(#0a0e14, #05070b); border-bottom: 1px solid var(--line);
+    padding: 6px 18px; height: 34px; }
+  .statusbar .clock { font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: 15px; letter-spacing: .5px; color: #cdd6e2; }
+  .statusbar .right { display: flex; align-items: center; gap: 12px; }
+  .bars { display: flex; align-items: flex-end; gap: 2px; height: 14px; }
+  .bars i { width: 3px; background: #6f8095; border-radius: 1px; display: block; }
+  .bars i.on { background: #cdd6e2; }
+  .spk { width: 16px; height: 16px; display: block; opacity: .85; }
+
+  /* canvas body */
+  .body { display: block; width: 100%; background: #06090e; }
+  canvas { display: block; width: 100%; height: auto; }
+
+  /* hardware button bar */
+  .btnbar { display: flex; background: linear-gradient(#05070b, #0a0e14);
+    border-top: 1px solid var(--line); }
+  .btnbar button { flex: 1 1 0; background: transparent; border: 0;
+    border-right: 1px solid var(--line); color: #b7c3d4; font-size: 13px;
+    letter-spacing: .6px; text-transform: uppercase; padding: 13px 6px; cursor: pointer;
+    font-family: inherit; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .btnbar button:last-child { border-right: 0; }
+  .btnbar button:hover { color: #fff; background: rgba(47,155,255,.08); }
+  .btnbar button:active { background: rgba(47,155,255,.16); }
+
+  /* control panel */
+  .panel { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px;
+    margin-top: 16px; padding: 14px 16px; background: #0b1017; border: 1px solid var(--line);
+    border-radius: 12px; }
+  .panel .grp { display: flex; align-items: center; gap: 8px; }
+  .panel label { font-size: 12px; color: var(--muted); text-transform: uppercase;
+    letter-spacing: .5px; }
+  .panel button, .panel select { font-family: inherit; font-size: 13px; color: var(--ink);
+    background: #151d29; border: 1px solid #263448; border-radius: 8px; padding: 7px 12px;
+    cursor: pointer; }
+  .panel button:hover { border-color: #2f9bff; }
+  .panel button.active { background: #12325a; border-color: #2f9bff; color: #cfe6ff; }
+  .panel select { min-width: 190px; }
+  .panel .sep { width: 1px; align-self: stretch; background: var(--line); }
+  .scene-name { font-size: 12px; color: var(--muted); margin-left: auto; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="frame">
+    <div class="statusbar">
+      <span class="clock" id="clock">00:00</span>
+      <span class="right">
+        <span class="bars" id="bars"></span>
+        <svg class="spk" viewBox="0 0 24 24" fill="none" stroke="#cdd6e2" stroke-width="1.6"
+             stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16 9a3 3 0 010 6"/><path d="M18.5 7a6 6 0 010 10"/>
+        </svg>
+      </span>
+    </div>
+    <div class="body"><canvas id="screen"></canvas></div>
+    <div class="btnbar" id="btnbar"></div>
+  </div>
+
+  <div class="panel">
+    <div class="grp">
+      <label>Scene</label>
+      <button id="prev" title="Previous scene">‹</button>
+      <select id="scenes"></select>
+      <button id="next" title="Next scene">›</button>
+    </div>
+    <div class="sep"></div>
+    <div class="grp">
+      <label>Lang</label>
+      <button id="lang-uk" class="active">UK</button>
+      <button id="lang-en">EN</button>
+    </div>
+    <div class="sep"></div>
+    <div class="grp">
+      <label>Screen</label>
+      <button id="h-720" class="active">720</button>
+      <button id="h-520">520</button>
+    </div>
+    <span class="scene-name" id="scene-name"></span>
+  </div>
+</div>
+
+<script>
+/* ---- CommonJS module registry (inlined app + shim source) ---- */
+var __modules = {};
+function __def(name, fn){ __modules[name] = { fn: fn, mod: null }; }
+function __require(id){
+  var name = String(id).replace(/^\.\//, '').replace(/\.js$/, '');
+  var rec = __modules[name];
+  if(!rec) throw new Error('module not found: ' + id);
+  if(!rec.mod){ rec.mod = { exports: {} }; rec.fn(rec.mod, rec.mod.exports, __require); }
+  return rec.mod.exports;
+}
+
+__def("canvas", function(module, exports, require){
+'use strict';
+/* Canvas shim for the MGU emulator. Implements the exact `c.*` surface the app
+ * draws through (see docs/CANVAS_API.md) on top of a CanvasRenderingContext2D.
+ * All coordinates are in the 1920x720 logical space; the harness sets a
+ * setTransform scale so drawing maps straight into the scaled backing canvas. */
+
+function makeCanvas(ctx, w, h) {
+    var FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, "Helvetica Neue", Arial, sans-serif';
+
+    function fontStr(size) { return Math.round(size) + 'px ' + FONT; }
+
+    var c = {
+        w: w,
+        h: h,
+        _targets: [],
+
+        clear: function (color) {
+            ctx.save();
+            ctx.fillStyle = color || '#000';
+            ctx.fillRect(0, 0, c.w, c.h);
+            ctx.restore();
+        },
+
+        fillRect: function (x, y, ww, hh, color) {
+            ctx.save();
+            ctx.fillStyle = color;
+            ctx.fillRect(x, y, ww, hh);
+            ctx.restore();
+        },
+
+        gradientRect: function (x, y, ww, hh, from, to, vertical) {
+            ctx.save();
+            var g = vertical
+                ? ctx.createLinearGradient(x, y, x, y + hh)
+                : ctx.createLinearGradient(x, y, x + ww, y);
+            g.addColorStop(0, from);
+            g.addColorStop(1, to);
+            ctx.fillStyle = g;
+            ctx.fillRect(x, y, ww, hh);
+            ctx.restore();
+        },
+
+        _roundPath: function (x, y, ww, hh, r) {
+            r = Math.max(0, Math.min(r, Math.min(ww, hh) / 2));
+            ctx.beginPath();
+            ctx.moveTo(x + r, y);
+            ctx.arcTo(x + ww, y, x + ww, y + hh, r);
+            ctx.arcTo(x + ww, y + hh, x, y + hh, r);
+            ctx.arcTo(x, y + hh, x, y, r);
+            ctx.arcTo(x, y, x + ww, y, r);
+            ctx.closePath();
+        },
+
+        roundRect: function (x, y, ww, hh, r, color) {
+            ctx.save();
+            c._roundPath(x, y, ww, hh, r);
+            ctx.fillStyle = color;
+            ctx.fill();
+            ctx.restore();
+        },
+
+        strokeRoundRect: function (x, y, ww, hh, r, lineWidth, color) {
+            ctx.save();
+            c._roundPath(x, y, ww, hh, r);
+            ctx.lineWidth = lineWidth;
+            ctx.strokeStyle = color;
+            ctx.stroke();
+            ctx.restore();
+        },
+
+        line: function (x1, y1, x2, y2, lineWidth, color) {
+            ctx.save();
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.lineWidth = lineWidth;
+            ctx.strokeStyle = color;
+            ctx.lineCap = 'round';
+            ctx.stroke();
+            ctx.restore();
+        },
+
+        circle: function (cx, cy, radius, color) {
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(cx, cy, Math.max(0, radius), 0, Math.PI * 2);
+            ctx.fillStyle = color;
+            ctx.fill();
+            ctx.restore();
+        },
+
+        quad: function (points, color) {
+            if (!points || !points.length) return;
+            ctx.save();
+            ctx.beginPath();
+            ctx.moveTo(points[0][0], points[0][1]);
+            for (var i = 1; i < points.length; i++) ctx.lineTo(points[i][0], points[i][1]);
+            ctx.closePath();
+            ctx.fillStyle = color;
+            ctx.fill();
+            ctx.restore();
+        },
+
+        image: function (img, x, y, ww, hh) {
+            if (!img) return;
+            ctx.save();
+            try { ctx.drawImage(img, x, y, ww, hh); } catch (e) { /* ignore */ }
+            ctx.restore();
+        },
+
+        text: function (str, x, y, size, color, opts) {
+            opts = opts || {};
+            ctx.save();
+            ctx.font = fontStr(size);
+            ctx.fillStyle = color;
+            ctx.textBaseline = 'top';
+            ctx.textAlign = opts.align === 'center' ? 'center' : opts.align === 'right' ? 'right' : 'left';
+            ctx.fillText(String(str), x, y);
+            ctx.restore();
+        },
+
+        textWidth: function (str, size, opts) {
+            ctx.save();
+            ctx.font = fontStr(size);
+            var m = ctx.measureText(String(str));
+            ctx.restore();
+            return m.width;
+        },
+
+        target: function (x, y, ww, hh, onClick, id, radius) {
+            c._targets.push({ x: x, y: y, w: ww, h: hh, onClick: onClick, id: id, radius: radius });
+        },
+    };
+
+    return c;
+}
+
+if (typeof module !== 'undefined' && module.exports) module.exports = { makeCanvas: makeCanvas };
+
+});
+__def("i18n", function(module, exports, require){
+'use strict';
+/* Base Player — UI strings. Ukrainian first (default), English second.
+ * t(key) returns the string for the current language; t.set('uk'|'en') switches. */
+
+const STRINGS = {
+    uk: {
+        app_title: 'Base Player',
+        tagline: 'Екран і звук з твого телефона — на iDrive',
+
+        // receiver / idle
+        ready: 'Готово до підключення',
+        ready_hint: 'На iPhone відкрий Керування → Повтор екрана й обери «Base Player». Для відео натисни AirPlay у плеєрі.',
+        pin_label: 'Код підключення',
+        name_label: "Ім'я приймача",
+        receiver_name: 'Base Player',
+
+        // audio / now playing
+        now_playing: 'Зараз грає',
+        pick_on_phone: 'Обери музику на телефоні',
+        audio_connected: 'Звук під’єднано · йде через колонки авто',
+        waiting_audio: 'Запусти відтворення на телефоні',
+        prev: 'Назад', play_pause: 'Пуск / пауза', next: 'Далі',
+        shuffle: 'Випадково', repeat: 'Повтор',
+        shuffle_on: 'Випадково: увімк', shuffle_off: 'Випадково: вимк',
+        repeat_off: 'Повтор: вимк', repeat_one: 'Повтор: трек', repeat_all: 'Повтор: усі',
+
+        // mirror / video
+        mirroring: 'Повтор екрана',
+        mirroring_sub: 'Екран телефона на дисплеї авто',
+        video_playing: 'Відео',
+        video_sub: 'Звук через колонки авто',
+        loading: 'Завантаження…',
+        buffering: 'Буферизація…',
+
+        // modes shown on idle cards
+        card_mirror_t: 'Повтор екрана', card_mirror_s: 'Весь екран телефона',
+        card_audio_t: 'Музика', card_audio_s: 'Тільки звук у колонки',
+        card_video_t: 'Відео', card_video_s: 'YouTube, файли, плеєри',
+
+        // hardware buttons (mirror app.json)
+        btn_start: 'Підключити',
+        btn_end_video: 'Зупинити відео',
+        btn_mirror: 'До повтору екрана',
+        btn_stop: 'Від’єднати',
+        btn_close: 'Закрити',
+
+        // notices
+        starting: 'Приймач ще запускається. Спробуй ще раз.',
+        no_video: 'Відео не відтворюється.',
+        disconnecting: 'Від’єднуємо AirPlay…',
+        disconnect_unconfirmed: 'Від’єднання не підтверджено. Спробуй ще раз.',
+        mirror_already: 'Відео немає — повтор екрана вже активний.',
+        start_mirror_hint: 'Увімкни повтор екрана на телефоні.',
+
+        // errors — the whole point of this rebuild: say the real reason
+        err_title: 'Відео не вдалося відтворити',
+        err_certificate: 'Годинник авто збитий — сертифікат сайту виглядає простроченим. Зачекай, поки відновиться GPS-час, або онови Base Player (терпимість до дати).',
+        err_offline: 'У головного блоку немає інтернету. Увімкни точку доступу телефона й перевір у Store → Wi-Fi.',
+        err_dns: 'Немає доступу до DNS. Перевір інтернет на точці доступу телефона.',
+        err_forbidden: 'Сервер відхилив запит (доступ заборонено).',
+        err_not_found: 'Джерело відео не знайдено.',
+        err_unsupported: 'Формат відео не підтримується для прямого AirPlay.',
+        err_decode: 'Помилка декодування відео.',
+        err_media_failed: 'Не вдалося відтворити медіа.',
+        err_tap_retry: 'Торкнись, щоб спробувати ще раз',
+        err_try_mirror: 'Порада: пусти це відео через повтор екрана — тоді інтернет блоку не потрібен.',
+    },
+    en: {
+        app_title: 'Base Player',
+        tagline: 'Your phone’s screen and sound — on iDrive',
+
+        ready: 'Ready to connect',
+        ready_hint: 'On iPhone open Control Centre → Screen Mirroring and pick “Base Player”. For video, tap AirPlay in the player.',
+        pin_label: 'Pairing code',
+        name_label: 'Receiver name',
+        receiver_name: 'Base Player',
+
+        now_playing: 'Now playing',
+        pick_on_phone: 'Pick music on your phone',
+        audio_connected: 'Audio connected · through the car speakers',
+        waiting_audio: 'Start playback on your phone',
+        prev: 'Previous', play_pause: 'Play / Pause', next: 'Next',
+        shuffle: 'Shuffle', repeat: 'Repeat',
+        shuffle_on: 'Shuffle: on', shuffle_off: 'Shuffle: off',
+        repeat_off: 'Repeat: off', repeat_one: 'Repeat: one', repeat_all: 'Repeat: all',
+
+        mirroring: 'Screen mirroring',
+        mirroring_sub: 'Your phone’s screen on the car display',
+        video_playing: 'Video',
+        video_sub: 'Sound through the car speakers',
+        loading: 'Loading…',
+        buffering: 'Buffering…',
+
+        card_mirror_t: 'Screen mirroring', card_mirror_s: 'Your whole phone screen',
+        card_audio_t: 'Music', card_audio_s: 'Audio only, to the speakers',
+        card_video_t: 'Video', card_video_s: 'YouTube, files, players',
+
+        btn_start: 'Connect',
+        btn_end_video: 'Stop video',
+        btn_mirror: 'To mirroring',
+        btn_stop: 'Disconnect',
+        btn_close: 'Close',
+
+        starting: 'Receiver still starting. Try again.',
+        no_video: 'No video is playing.',
+        disconnecting: 'Disconnecting AirPlay…',
+        disconnect_unconfirmed: 'Disconnect not confirmed. Try again.',
+        mirror_already: 'No video — mirroring is already active.',
+        start_mirror_hint: 'Start screen mirroring on your phone.',
+
+        err_title: 'Video could not play',
+        err_certificate: 'The car’s clock is wrong, so the site’s certificate looks expired. Wait for GPS time to recover, or update Base Player (date tolerance).',
+        err_offline: 'The head unit has no internet. Turn on your phone’s hotspot and check Store → Wi-Fi.',
+        err_dns: 'DNS is unreachable. Check internet on the phone hotspot.',
+        err_forbidden: 'The server refused the request (forbidden).',
+        err_not_found: 'The video source was not found.',
+        err_unsupported: 'This video format isn’t supported for direct AirPlay.',
+        err_decode: 'Video decode error.',
+        err_media_failed: 'Could not play the media.',
+        err_tap_retry: 'Tap to try again',
+        err_try_mirror: 'Tip: play this video via screen mirroring — then the head unit needs no internet.',
+    },
+};
+
+let lang = 'uk';
+function t(key) {
+    const table = STRINGS[lang] || STRINGS.uk;
+    return table[key] !== undefined ? table[key] : (STRINGS.uk[key] !== undefined ? STRINGS.uk[key] : key);
+}
+t.set = next => { if (STRINGS[next]) lang = next; };
+t.get = () => lang;
+t.languages = () => Object.keys(STRINGS);
+
+module.exports = { t, STRINGS };
+
+});
+__def("view", function(module, exports, require){
+'use strict';
+/* Base Player — BMW iDrive-style view. All on-canvas text goes through t().
+ * Pure drawing: given (c, state, t) it renders one frame. No side effects, so
+ * the emulator and the car render identically. Reference screen 1920x720. */
+
+const C = {
+    bgTop: '#0b1017', bgBot: '#06090e',
+    card: '#131b27', cardHi: '#17202e', edge: '#283647',
+    ink: '#ffffff', muted: '#9fb1c6', faint: '#6b7c93',
+    blue: '#2f9bff', blueDeep: '#1c69d4', blueDim: '#12325a',
+    mint: '#49d1a8', mintDim: '#123a33',
+    red: '#ff5964', redDim: '#3a1620', amber: '#ffb44d',
+};
+
+function text(c, str, x, y, size, color, opts) {
+    return c.text(str, x, y, size, color, Object.assign({ font: 'airplay' }, opts || {}));
+}
+
+/* --- small vector icons (no image assets) --- */
+function iconAirplay(c, x, y, s, color) {
+    c.strokeRoundRect(x, y, s, s * 0.66, s * 0.09, Math.max(2, s * 0.03), color);
+    c.quad([[x + s * 0.5, y + s * 0.46], [x + s * 0.74, y + s * 0.84],
+        [x + s * 0.26, y + s * 0.84], [x + s * 0.5, y + s * 0.46]], color);
+}
+function iconPhone(c, x, y, s, color) {
+    c.strokeRoundRect(x, y, s * 0.56, s, s * 0.13, Math.max(2, s * 0.04), color);
+    c.line(x + s * 0.2, y + s * 0.86, x + s * 0.36, y + s * 0.86, Math.max(2, s * 0.04), color);
+}
+function iconNote(c, x, y, s, color) {
+    c.line(x + s * 0.28, y + s * 0.1, x + s * 0.28, y + s * 0.84, Math.max(3, s * 0.07), color);
+    c.line(x + s * 0.78, y + s * 0.02, x + s * 0.78, y + s * 0.74, Math.max(3, s * 0.07), color);
+    c.line(x + s * 0.28, y + s * 0.1, x + s * 0.78, y + s * 0.02, Math.max(3, s * 0.07), color);
+    c.circle(x + s * 0.18, y + s * 0.86, s * 0.12, color);
+    c.circle(x + s * 0.68, y + s * 0.76, s * 0.12, color);
+}
+function iconPlay(c, x, y, s, color) {
+    c.quad([[x + s * 0.28, y + s * 0.18], [x + s * 0.82, y + s * 0.5],
+        [x + s * 0.28, y + s * 0.82], [x + s * 0.28, y + s * 0.18]], color);
+}
+
+/* --- shared chrome --- */
+function header(c, t, pill, pillColor) {
+    // title + thin iDrive accent, status pill on the right
+    iconAirplay(c, 60, 44, 40, C.blue);
+    text(c, t('app_title'), 120, 50, 34, C.ink);
+    text(c, t('tagline'), 120, 92, 22, C.muted);
+    c.fillRect(60, 126, 150, 3, C.blueDeep);
+    if (pill) {
+        const w = 26 + (pill.length * 13);
+        c.roundRect(c.w - 70 - w, 52, w, 44, 22, pillColor === C.mint ? C.mintDim : pillColor === C.red ? C.redDim : C.blueDim);
+        c.circle(c.w - 70 - w + 24, 74, 6, pillColor);
+        text(c, pill, c.w - 70 - w + 40, 62, 22, C.ink);
+    }
+}
+
+function notice(c, t, msg) {
+    if (!msg) return;
+    c.roundRect(60, c.h - 54, c.w - 120, 40, 12, C.redDim);
+    text(c, msg, c.w / 2, c.h - 46, 22, '#ffd9dd', { align: 'center' });
+}
+
+/* --- phase: idle / waiting (the "ready" screen) --- */
+function modeCard(c, t, x, w, icon, title, sub) {
+    c.roundRect(x, c.h - 190, w, 120, 18, C.card);
+    c.strokeRoundRect(x, c.h - 190, w, 120, 18, 1, C.edge);
+    icon(c, x + 26, c.h - 158, 56);
+    text(c, title, x + 104, c.h - 166, 25, C.ink);
+    text(c, sub, x + 104, c.h - 132, 20, C.muted);
+}
+
+function drawIdle(c, state, t) {
+    const code = state.pin || '— — — — — —';
+    // big pairing card, centred
+    const cw = 760, cx = (c.w - cw) / 2, cy = 168;
+    c.roundRect(cx, cy, cw, 196, 24, C.cardHi);
+    c.strokeRoundRect(cx, cy, cw, 196, 24, 1, C.edge);
+    text(c, t('ready'), cx + 44, cy + 34, 28, C.ink);
+    text(c, t('name_label') + ': ' + t('receiver_name'), cx + 44, cy + 76, 22, C.muted);
+    text(c, t('pin_label'), cx + 44, cy + 120, 20, C.faint);
+    text(c, code, cx + 44, cy + 146, 44, C.blue, { literal: true });
+    iconAirplay(c, cx + cw - 128, cy + 56, 84, C.blueDeep);
+    // hint line
+    text(c, t('ready_hint'), c.w / 2, cy + 214, 21, C.muted, { align: 'center' });
+    // three mode cards along the bottom of the body
+    const gap = 24, w = (c.w - 120 - gap * 2) / 3;
+    modeCard(c, t, 60, w, (cc, x, y, s) => iconPhone(cc, x, y, s, C.blue), t('card_mirror_t'), t('card_mirror_s'));
+    modeCard(c, t, 60 + w + gap, w, (cc, x, y, s) => iconNote(cc, x, y, s, C.mint), t('card_audio_t'), t('card_audio_s'));
+    modeCard(c, t, 60 + (w + gap) * 2, w, (cc, x, y, s) => iconPlay(cc, x, y, s, C.red), t('card_video_t'), t('card_video_s'));
+}
+
+/* --- phase: audio / now playing --- */
+function controlButton(c, x, w, label, active) {
+    c.roundRect(x, c.h - 150, w, 84, 16, active ? C.mintDim : C.card);
+    c.strokeRoundRect(x, c.h - 150, w, 84, 16, 1, active ? '#2f6f63' : C.edge);
+    text(c, label, x + w / 2, c.h - 118, 24, active ? C.mint : C.ink, { align: 'center' });
+}
+function drawAudio(c, state, t) {
+    const m = state.music || {};
+    // artwork placeholder
+    c.roundRect(60, 160, 240, 240, 20, C.card);
+    iconNote(c, 128, 212, 110, C.blue);
+    // titles
+    text(c, m.title || t('now_playing') + '.', 332, 168, 44, C.ink, { literal: !!m.title });
+    text(c, m.artist || (state.connected ? t('pick_on_phone') : t('waiting_audio')), 334, 220, 27, C.muted, { literal: !!m.artist });
+    text(c, m.album || (state.connected ? t('audio_connected') : ''), 334, 262, 23, C.muted, { literal: !!m.album });
+    // controls row
+    const ctl = m.controls || {};
+    const row = [
+        [t('prev'), 'previous', false],
+        [m.playbackState === 'playing' ? t('play_pause') : t('play_pause'), 'playPause', false],
+        [t('next'), 'next', false],
+        [m.shuffle ? t('shuffle_on') : t('shuffle_off'), 'shuffle', m.shuffle === 1],
+        [m.repeat === 1 ? t('repeat_one') : m.repeat === 2 ? t('repeat_all') : t('repeat_off'), 'repeat', m.repeat > 0],
+    ];
+    const gap = 20, total = c.w - 680, w = (total - gap * (row.length - 1)) / row.length;
+    row.forEach((b, i) => controlButton(c, 332 + i * (w + gap), w, b[0], b[2]));
+}
+
+/* --- phase: mirror / video / loading --- */
+function drawStatusCentre(c, t, icon, color, title, sub) {
+    const cy = 150;
+    icon(c, c.w / 2 - 50, cy, 100, color);
+    text(c, title, c.w / 2, cy + 130, 40, C.ink, { align: 'center' });
+    text(c, sub, c.w / 2, cy + 184, 24, C.muted, { align: 'center' });
+}
+
+/* --- phase: error (the real reason) --- */
+function drawError(c, state, t) {
+    const key = 'err_' + (state.error || 'media_failed');
+    const reason = t(key) !== key ? t(key) : t('err_media_failed');
+    const cw = 1100, cx = (c.w - cw) / 2, cy = 150;
+    c.roundRect(cx, cy, cw, 240, 22, C.redDim);
+    c.strokeRoundRect(cx, cy, cw, 240, 22, 1, '#6a2730');
+    c.circle(cx + 60, cy + 60, 26, C.red);
+    text(c, '!', cx + 60, cy + 44, 34, '#ffffff', { align: 'center' });
+    text(c, t('err_title'), cx + 104, cy + 40, 30, C.ink);
+    // reason wraps to two lines by naive split at ~62 chars
+    const words = reason.split(' '); let line = '', lines = [];
+    for (const w of words) { if ((line + ' ' + w).length > 64) { lines.push(line); line = w; } else line = line ? line + ' ' + w : w; }
+    if (line) lines.push(line);
+    lines.slice(0, 3).forEach((ln, i) => text(c, ln, cx + 104, cy + 86 + i * 34, 23, '#ffd9dd'));
+    text(c, t('err_try_mirror'), c.w / 2, cy + 272, 22, C.amber, { align: 'center' });
+    text(c, t('err_tap_retry'), c.w / 2, cy + 308, 21, C.muted, { align: 'center' });
+}
+
+/* --- entry point --- */
+function drawHome(c, state, t) {
+    c.clear(C.bgTop);
+    if (c.gradientRect) c.gradientRect(0, 0, c.w, c.h, C.bgTop, C.bgBot, true);
+    let pill = null, pc = C.blue;
+    switch (state.phase) {
+        case 'audio': pill = t('now_playing'); pc = C.mint; break;
+        case 'mirror': pill = t('mirroring'); pc = C.blue; break;
+        case 'video': pill = t('video_playing'); pc = C.blue; break;
+        case 'loading': pill = t('loading'); pc = C.blue; break;
+        case 'error': pill = t('err_title'); pc = C.red; break;
+        default: pill = t('ready'); pc = C.blue;
+    }
+    header(c, t, pill, pc);
+    switch (state.phase) {
+        case 'audio': drawAudio(c, state, t); break;
+        case 'mirror': drawStatusCentre(c, t, (cc, x, y, s) => iconPhone(cc, x, y, s, C.blue), C.blue, t('mirroring'), t('mirroring_sub')); break;
+        case 'video': drawStatusCentre(c, t, (cc, x, y, s) => iconPlay(cc, x, y, s, C.blue), C.blue, t('video_playing'), t('video_sub')); break;
+        case 'loading': drawStatusCentre(c, t, (cc, x, y, s) => iconAirplay(cc, x, y, s, C.blue), C.blue, state.buffering ? t('buffering') : t('loading'), ''); break;
+        case 'error': drawError(c, state, t); break;
+        default: drawIdle(c, state, t);
+    }
+    notice(c, t, state.notice);
+}
+
+module.exports = { drawHome, COLORS: C };
+
+});
+__def("fixtures", function(module, exports, require){
+'use strict';
+/* Representative states for the emulator's scene picker. */
+module.exports = [
+  { name: 'Готово (код)', state: { phase: 'idle', pin: '569 156', connected: false } },
+  { name: 'Звук (метадані)', state: { phase: 'audio', connected: true, music: { title: 'Nightcall', artist: 'Kavinsky', album: 'OutRun', playbackState: 'playing', shuffle: 1, repeat: 2, controls: { previous:1, playPause:1, next:1, shuffle:1, repeat:1 } } } },
+  { name: 'Звук (очікування)', state: { phase: 'audio', connected: false, pin: '569 156', music: {} } },
+  { name: 'Повтор екрана', state: { phase: 'mirror', connected: true, mode: 'mirror' } },
+  { name: 'Відео грає', state: { phase: 'video', connected: true, mode: 'hls' } },
+  { name: 'Завантаження', state: { phase: 'loading', buffering: true } },
+  { name: 'Помилка: сертифікат/годинник', state: { phase: 'error', error: 'certificate' } },
+  { name: 'Помилка: нема інтернету', state: { phase: 'error', error: 'offline' } },
+  { name: 'Помилка: формат', state: { phase: 'error', error: 'unsupported' } },
+  { name: 'Нотіс', state: { phase: 'idle', pin: '569 156', notice: 'Приймач ще запускається. Спробуй ще раз.' } },
+];
+
+});
+
+/* ---- harness ---- */
+(function(){
+  var makeCanvas = __require('./canvas').makeCanvas;
+  var i18n = __require('./i18n');
+  var t = i18n.t;
+  var drawHome = __require('./view').drawHome;
+  var fixtures = __require('./fixtures');
+  var BUTTONS = [{"id":"BTN_START","label":"Підключити","key":"btn_start"},{"id":"BTN_END_VIDEO","label":"Зупинити відео","key":"btn_end_video"},{"id":"BTN_MIRROR","label":"До повтору екрана","key":"btn_mirror"},{"id":"BTN_STOP","label":"Від’єднати","key":"btn_stop"},{"id":"BTN_CLOSE","label":"Закрити","key":"btn_close"}];
+
+  var canvas = document.getElementById('screen');
+  var ctx = canvas.getContext('2d');
+  var H = 720;          // canvas body logical height (720 or 520)
+  var idx = 0;          // current scene
+  var lang = 'uk';
+  var curTargets = [];
+
+  /* --- layout: crisp scaling, shim draws in 1920xH logical units --- */
+  function layout(){
+    var cssW = canvas.parentNode.clientWidth || 960;
+    var dpr = window.devicePixelRatio || 1;
+    var scale = cssW / 1920;
+    canvas.style.height = (cssW * H / 1920) + 'px';
+    canvas.width = Math.max(1, Math.round(1920 * scale * dpr));
+    canvas.height = Math.max(1, Math.round(H * scale * dpr));
+    ctx.setTransform(scale * dpr, 0, 0, scale * dpr, 0, 0);
+    render();
+  }
+
+  function render(){
+    t.set(lang);
+    var c = makeCanvas(ctx, 1920, H);
+    var scene = fixtures[idx] || fixtures[0];
+    try { drawHome(c, scene.state || {}, t); }
+    catch(e){ console.error('drawHome threw', e); }
+    curTargets = c._targets || [];
+    document.getElementById('scene-name').textContent = scene.name || '';
+    renderButtons();
+  }
+
+  /* --- hardware button bar (static preview; follows language) --- */
+  function renderButtons(){
+    var bar = document.getElementById('btnbar');
+    bar.innerHTML = '';
+    BUTTONS.forEach(function(b){
+      var el = document.createElement('button');
+      el.textContent = b.key ? t(b.key) : b.label;
+      el.title = b.id;
+      bar.appendChild(el);
+    });
+  }
+
+  /* --- canvas click -> logical coords -> hit targets --- */
+  canvas.addEventListener('click', function(ev){
+    var r = canvas.getBoundingClientRect();
+    var x = (ev.clientX - r.left) / r.width * 1920;
+    var y = (ev.clientY - r.top) / r.height * H;
+    for (var i = curTargets.length - 1; i >= 0; i--){
+      var tg = curTargets[i];
+      if (x >= tg.x && x <= tg.x + tg.w && y >= tg.y && y <= tg.y + tg.h){
+        if (typeof tg.onClick === 'function'){ try { tg.onClick(); } catch(e){} }
+        break;
+      }
+    }
+  });
+
+  /* --- scene picker --- */
+  var sel = document.getElementById('scenes');
+  fixtures.forEach(function(f, i){
+    var o = document.createElement('option');
+    o.value = i; o.textContent = (i+1) + '. ' + f.name;
+    sel.appendChild(o);
+  });
+  function setScene(i){
+    idx = (i + fixtures.length) % fixtures.length;
+    sel.value = idx;
+    render();
+  }
+  document.getElementById('prev').onclick = function(){ setScene(idx - 1); };
+  document.getElementById('next').onclick = function(){ setScene(idx + 1); };
+  sel.onchange = function(){ setScene(parseInt(sel.value, 10) || 0); };
+
+  /* --- language toggle --- */
+  function setLang(l){
+    lang = l;
+    document.getElementById('lang-uk').classList.toggle('active', l === 'uk');
+    document.getElementById('lang-en').classList.toggle('active', l === 'en');
+    render();
+  }
+  document.getElementById('lang-uk').onclick = function(){ setLang('uk'); };
+  document.getElementById('lang-en').onclick = function(){ setLang('en'); };
+
+  /* --- short-screen toggle --- */
+  function setH(h){
+    H = h;
+    document.getElementById('h-720').classList.toggle('active', h === 720);
+    document.getElementById('h-520').classList.toggle('active', h === 520);
+    layout();
+  }
+  document.getElementById('h-720').onclick = function(){ setH(720); };
+  document.getElementById('h-520').onclick = function(){ setH(520); };
+
+  /* --- status bar clock + signal bars --- */
+  var barsEl = document.getElementById('bars');
+  var heights = [5, 8, 11, 14];
+  heights.forEach(function(h, i){
+    var b = document.createElement('i');
+    b.style.height = h + 'px';
+    if (i < 3) b.className = 'on';
+    barsEl.appendChild(b);
+  });
+  function tick(){
+    var d = new Date();
+    var hh = String(d.getHours()).padStart(2, '0');
+    var mm = String(d.getMinutes()).padStart(2, '0');
+    document.getElementById('clock').textContent = hh + ':' + mm;
+  }
+  tick(); setInterval(tick, 1000 * 15);
+
+  window.addEventListener('resize', layout);
+  layout();
+})();
+</script>
+</body>
+</html>
