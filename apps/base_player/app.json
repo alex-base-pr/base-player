@@ -1,0 +1,20 @@
+{
+  "id": "base_player",
+  "title": "Base Player",
+  "description": "Base Player — екран і звук з телефона на iDrive 7 (AirPlay/DLNA). Власна розробка, GPL-3.0.",
+  "version": "0.1.0",
+  "vendor": "base",
+  "loggingId": "BPL1",
+  "maxDiskUsage": 67108864,
+  "memoryKB": 196608,
+  "iconGlyph": "WEB",
+  "screens": [{
+    "name": "MAIN", "kind": "canvas", "title": "Base Player", "bar": true, "borderless": true,
+    "buttons": [["BTN_START", "Підключити"], ["BTN_END_VIDEO", "Зупинити відео"], ["BTN_MIRROR", "До повтору екрана"], ["BTN_STOP", "Від’єднати"], ["BTN_CLOSE", "Закрити"]]
+  }],
+  "settings": [
+    { "id": "language", "title": "Мова / Language", "type": "enum", "values": ["uk", "en"], "default": "uk" },
+    { "id": "video_while_driving", "title": "Відео під час руху (приват. територія)", "type": "bool", "default": false }
+  ],
+  "config": {}
+}
