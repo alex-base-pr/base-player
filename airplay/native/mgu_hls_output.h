@@ -70,6 +70,23 @@ static void mgu_hls_viewport_free(gpointer data) {
     g_free(viewport);
 }
 
+/* Base Player: certificate policy and error cause for this binary's playbin.
+   One translation unit per binary includes this header, so the two sources
+   are compiled into it here. */
+#include "bp_error.c"
+#include "bp_gst.c"
+static BpTls mgu_bp_tls;
+
+/* Wire name of the cause of a bus error on `player` (bp_error.h). */
+static const char *mgu_bp_error(GstMessage *message, GstElement *player) {
+    gchar *uri = NULL;
+    g_object_get(player, "current-uri", &uri, NULL);
+    if (!uri) g_object_get(player, "uri", &uri, NULL);
+    const char *name = bp_error_name(bp_gst_classify(message, &mgu_bp_tls, uri));
+    g_free(uri);
+    return name;
+}
+
 static void mgu_hls_output(GstElement *player) {
     const gchar *description = g_getenv("MGU_HLS_AUDIO_SINK");
     if (!description || !*description) g_error("MGU HLS audio output not configured");
@@ -80,6 +97,10 @@ static void mgu_hls_output(GstElement *player) {
     if (error || !database) g_error("MGU HLS certificate store could not be loaded");
     g_tls_backend_set_default_database(g_tls_backend_get_default(), database);
     g_object_unref(database);
+    /* After the store above is the default: the policy wraps that database. */
+    bp_tls_reset(&mgu_bp_tls);
+    bp_tls_set_tolerate_date(&mgu_bp_tls, g_strcmp0(g_getenv("BP_CERT_DATE_TOLERANCE"), "1") == 0);
+    bp_tls_attach(&mgu_bp_tls, player);
     GstElement *audio = gst_parse_bin_from_description(description, TRUE, &error);
     if (error || !audio) g_error("MGU HLS audio pipeline could not be created");
     gst_object_ref_sink(audio);

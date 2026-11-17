@@ -9,6 +9,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const { frameHeader, writeVideoViewport, removeVideoViewport, validVideoViewport } = require('./receiver');
+const { certDateTolerance } = require('./app_settings');
 
 function validUri(uri) {
     return typeof uri === 'string' && uri.length >= 8 && uri.length <= 8192 && /^https?:\/\//i.test(uri) && !/[\x00-\x20\x7f]/.test(uri);
@@ -52,6 +53,7 @@ class MediaPlayer extends EventEmitter {
             GST_REGISTRY: path.join(this.dataDir, 'gst-player-registry.bin'), GST_REGISTRY_FORK: 'no',
             LD_LIBRARY_PATH: path.join(this.runtime, 'lib'), GST_DEBUG: '1', GST_DEBUG_NO_COLOR: '1',
             GST_PLUGIN_FEATURE_RANK: 'hlsdemux2:0',
+            BP_CERT_DATE_TOLERANCE: certDateTolerance(this.dataDir) ? '1' : '0',
             ALSA_PLUGIN_DIR: '/usr/lib/alsa-lib', MGU_HLS_AUDIO_SINK: audio,
             GIO_MODULE_DIR: path.join(this.runtime, 'gio'),
             G_TLS_CA_FILE: path.join(this.runtime, 'etc/ca-certificates.crt'),

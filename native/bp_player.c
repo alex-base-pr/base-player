@@ -207,7 +207,7 @@ int main(int argc, char **argv) {
     g_option_context_free(parser);
 
     Session s;
-    memset(&s, 0, sizeof s);
+    memset(&s, 0, sizeof s); /* a zeroed BpTls, GMutex included, is valid */
     s.phase = PHASE_UNSET;
     s.playbin = gst_element_factory_make("playbin", NULL);
     GstElement *video = make_sink(video_sink);

@@ -167,17 +167,8 @@ static gboolean on_bus(GstBus *bus, GstMessage *message, gpointer data) {
         if (p->loaded) { p->want_playing = FALSE; gst_element_set_state(p->player, GST_STATE_PAUSED); report_state(p, "ended"); }
         break;
     case GST_MESSAGE_ERROR: {
-        GError *error = NULL;
-        gst_message_parse_error(message, &error, NULL);
-        const char *code = "playback_failed";
-        if (error) {
-            if (error->domain == GST_RESOURCE_ERROR) code = error->code == GST_RESOURCE_ERROR_NOT_AUTHORIZED ? "forbidden" :
-                error->code == GST_RESOURCE_ERROR_NOT_FOUND ? "not_found" : "network_failed";
-            else if (error->domain == GST_STREAM_ERROR) code = error->code == GST_STREAM_ERROR_CODEC_NOT_FOUND ||
-                error->code == GST_STREAM_ERROR_TYPE_NOT_FOUND || error->code == GST_STREAM_ERROR_WRONG_TYPE ? "unsupported" : "decode_failed";
-            g_error_free(error);
-        }
-        say("error %s", code);
+        /* Base Player: the real cause instead of one network_failed. */
+        say("error %s", mgu_bp_error(message, p->player));
         unload(p); p->last_state = NULL; report_state(p, "stopped");
         break;
     }

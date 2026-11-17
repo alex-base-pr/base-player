@@ -21,6 +21,7 @@ const receiver = new Receiver({ dataDir: data, runtime: process.env.BASE_PLAYER_
 // Android: a DLNA/UPnP media renderer plays URLs from the phone through the
 // same BMW video and audio path. It is announced only while reception is on.
 const { MediaPlayer } = require('./media_player');
+const { mediaError } = require('./i18n');
 const { DlnaRenderer } = require('./dlna_renderer');
 const player = new MediaPlayer({ runtime: receiver.runtime, dataDir: data, audioSink: AUDIO_SINK });
 // Base Player app (e.g. Pixel phones, whose system "Cast" is Google Cast):
@@ -152,7 +153,7 @@ function presented() {
         detached: false, music: null, error: null, device: mirror.device });
     const cast = castPresentation();
     if (!cast) return base;
-    const fields = { connected: true, sender: 'android', origin: 'android', playlistPending: false, detached: false, error: cast.error ? 'media_failed' : null };
+    const fields = { connected: true, sender: 'android', origin: 'android', playlistPending: false, detached: false, error: cast.error ? mediaError(cast.error) : null };
     if (cast.media === 'audio') Object.assign(fields, {
         phase: cast.transport === 'PLAYING' ? 'audio' : 'waiting', mode: 'audio', frame: null,
         music: { epoch: cast.epoch, title: cast.title, artist: cast.artist, album: cast.album, artwork: null, metadata: null,

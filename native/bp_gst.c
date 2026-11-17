@@ -102,9 +102,38 @@ static gboolean has_property(GObject *object, const char *name, GType type) {
     return spec && (spec->flags & G_PARAM_WRITABLE) && g_type_is_a(spec->value_type, type);
 }
 
+static gboolean is_remote(const gchar *url) {
+    if (!url || !(g_str_has_prefix(url, "https://") || g_str_has_prefix(url, "http://"))) return FALSE;
+    const gchar *host = strstr(url, "://") + 3;
+    return !(g_str_has_prefix(host, "localhost") || g_str_has_prefix(host, "127.") || g_str_has_prefix(host, "[::1]"));
+}
+
+static void on_location(GObject *object, GParamSpec *spec, gpointer data) {
+    BpTls *tls = (BpTls *)data;
+    gchar *url = NULL;
+    (void)spec;
+    g_object_get(object, "location", &url, NULL);
+    if (is_remote(url)) {
+        g_mutex_lock(&tls->lock);
+        g_free(tls->last_remote);
+        tls->last_remote = url;
+        g_mutex_unlock(&tls->lock);
+    } else {
+        g_free(url);
+    }
+}
+
 static void tls_apply(BpTls *tls, GstElement *element) {
     GObject *object = G_OBJECT(element);
     gboolean tolerate = g_atomic_int_get(&tls->tolerate_date);
+
+    if (has_property(object, "location", G_TYPE_STRING) && !g_object_get_data(object, "bp-location") &&
+        (g_object_class_find_property(G_OBJECT_GET_CLASS(object), "ssl-strict") ||
+         g_object_class_find_property(G_OBJECT_GET_CLASS(object), "tls-validation-flags"))) {
+        g_object_set_data(object, "bp-location", GINT_TO_POINTER(1));
+        g_signal_connect(object, "notify::location", G_CALLBACK(on_location), tls);
+        on_location(object, NULL, tls);
+    }
 
     if (has_property(object, "tls-validation-flags", G_TYPE_TLS_CERTIFICATE_FLAGS)) {
         /* Re-applied on every sighting so a changed setting takes effect. */
@@ -161,6 +190,9 @@ void bp_tls_reset(BpTls *tls) {
     g_atomic_int_set(&tls->seen_flags, 0);
     g_atomic_int_set(&tls->tolerated, 0);
     g_atomic_int_set(&tls->unsupported, 0);
+    g_mutex_lock(&tls->lock);
+    g_clear_pointer(&tls->last_remote, g_free);
+    g_mutex_unlock(&tls->lock);
 }
 
 /* --- classification ------------------------------------------------------- */
@@ -311,7 +343,14 @@ BpError bp_gst_classify(GstMessage *message, const BpTls *tls, const char *uri) 
     if (result == BP_ERR_MEDIA_FAILED && !in.http_status && in.kind != BP_KIND_TYPE && in.kind != BP_KIND_DECODE) {
         guint flags = 0;
         gboolean tolerate = tls && g_atomic_int_get(&((BpTls *)tls)->tolerate_date);
-        in.probe = bp_net_probe(uri, BP_PROBE_TIMEOUT_MS, &flags);
+        gchar *remote = NULL;
+        if (tls) {
+            g_mutex_lock(&((BpTls *)tls)->lock);
+            remote = g_strdup(tls->last_remote);
+            g_mutex_unlock(&((BpTls *)tls)->lock);
+        }
+        in.probe = bp_net_probe(remote ? remote : uri, BP_PROBE_TIMEOUT_MS, &flags);
+        g_free(remote);
         /* A date fault the policy tolerates did not cause this failure. */
         if (!bp_tls_accept(flags, tolerate)) in.tls_flags = flags;
         else if (in.probe == BP_PROBE_TLS_FAILED) in.probe = BP_PROBE_OK;

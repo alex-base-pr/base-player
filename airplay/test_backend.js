@@ -36,7 +36,7 @@ const fakeFs = {existsSync:()=>true,lstatSync:()=>({isSocket:()=>true,uid:12233}
 const modules = {
     './resolver':{refresh:()=>startupOrder.push('dns'),hasUplink:()=>uplinkOnline},fs:fakeFs,path:require('path'),'./receiver':{Receiver,validVideoViewport:require('../apps/base_player/receiver').validVideoViewport},
     './audio_route':{AudioRoute,AUDIO_SINK:'fakesink'},'./kit/signals':{},
-    './music_controls':{MusicControls},
+    './music_controls':{MusicControls},'./i18n':require('../apps/base_player/i18n'),
     './media_player':{MediaPlayer:class extends EventEmitter{constructor(o){super();player=this;this.options=o;this.state={state:'stopped'};this.closed=0;}setViewport(w,h){this.viewport={width:w,height:h};return true;}close(){this.closed++;return Promise.resolve();}stop(){}}},
     './cast_receiver':{PORT:7104,CastReceiver:class extends EventEmitter{constructor(o){super();screen=this;this.options=o;this.running=false;this.mirror=null;this.ended=0;}
         start(){this.running=true;return Promise.resolve();}stop(){this.running=false;this.mirror=null;return Promise.resolve();}

@@ -16,8 +16,10 @@
   },
   "screens": [{
     "name": "MAIN", "kind": "canvas", "title": "Base Player", "bar": true, "borderless": true,
-    "buttons": [["BTN_START", "Verbinden"], ["BTN_END_VIDEO", "Video beenden"], ["BTN_MIRROR", "Zur Spiegelung"], ["BTN_STOP", "Trennen"], ["BTN_CLOSE", "Schließen"]]
+    "buttons": [["BTN_START", "Connect"], ["BTN_END_VIDEO", "Stop video"], ["BTN_MIRROR", "To mirroring"], ["BTN_STOP", "Disconnect"], ["BTN_CLOSE", "Close"], ["BTN_SETTINGS", "Settings"]]
   }],
-  "settings": [],
+  "settings": [
+    { "key": "certDateTolerance", "label": "Ignore certificate dates (wrong car clock)", "type": "bool", "default": false }
+  ],
   "config": {}
 }

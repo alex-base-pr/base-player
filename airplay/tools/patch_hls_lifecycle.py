@@ -117,7 +117,7 @@ void video_renderer_begin_hls_transition(void) { g_atomic_int_set(&mgu_hls_stop_
             mgu_hls_play_requested = FALSE;
             gst_element_set_state(renderer->pipeline, GST_STATE_READY);
             renderer->eos = TRUE;
-            g_print("MGU_MEDIA_FAILED\\n"); fflush(stdout);
+            g_print("MGU_MEDIA_FAILED %s\\n", mgu_bp_error(message, renderer->pipeline)); fflush(stdout);
         }
 ''' + anchor)
     video = once(video, '    *rate = 0.0f;\n    if (!renderer) {',

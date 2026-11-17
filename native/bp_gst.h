@@ -11,6 +11,8 @@ typedef struct {
     gint seen_flags;    /* atomic: certificate problems that caused a rejection this load */
     gint tolerated;     /* atomic: a date-only problem was let through this load */
     gint unsupported;   /* atomic: a source offered none of the hooks below */
+    GMutex lock;
+    gchar *last_remote; /* under lock: last non-loopback http(s) URL a source was given */
 } BpTls;
 
 /* Watch `pipeline` (a playbin, or any bin) and put every network source it
@@ -29,8 +31,10 @@ void bp_tls_reset(BpTls *tls);
 
 /* Classify an error message from the bus. `tls` and `uri` may be NULL.
    When the message names no cause (libsoup 3 reports DNS, routing and TLS
-   failures alike as "Internal data stream error"), the host of `uri` is
-   probed: resolve, connect, TLS handshake — bounded by a few seconds. */
+   failures alike as "Internal data stream error"), a host is probed: resolve,
+   connect, TLS handshake — bounded by a few seconds. The host is that of the
+   last remote URL a source was given (AirPlay video hands playbin a playlist
+   on localhost whose segments are remote), else that of `uri`. */
 BpError bp_gst_classify(GstMessage *message, const BpTls *tls, const char *uri);
 
 /* Resolve + connect (+ TLS handshake for https) to the host of `uri`.

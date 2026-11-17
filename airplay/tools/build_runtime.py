@@ -100,6 +100,8 @@ def main():
     ux_source.write_text(ux_text)
     video_source.write_text(video_text)
     shutil.copy2(ROOT / 'airplay/native/mgu_hls_output.h', source / 'renderers/mgu_hls_output.h')
+    for name in ['bp_error.c', 'bp_error.h', 'bp_gst.c', 'bp_gst.h']:  # included by mgu_hls_output.h
+        shutil.copy2(ROOT / 'native' / name, source / 'renderers' / name)
     cmake_root = source / 'CMakeLists.txt'
     cmake_text = (WORK / 'UxPlay/CMakeLists.txt').read_text()
     cmake_root.write_text(cmake_text + '\npkg_check_modules(MGU_GIO REQUIRED gio-2.0)\n'
@@ -133,7 +135,7 @@ def main():
          ROOT / 'airplay/native/gstmguvideosink.c', '-o', RUNTIME / 'plugins/libgstmguvideo.so'] + flags)
     # Android/DLNA URL player: playbin with the same output as AirPlay video.
     gst_flags = subprocess.check_output(['pkg-config', '--cflags', '--libs', 'gstreamer-1.0', 'gio-2.0'], text=True).split()
-    run(['gcc', '-O2', '-march=x86-64', '-mtune=generic', '-Wall', '-Wextra', '-Werror', '-I', ROOT / 'airplay/native',
+    run(['gcc', '-O2', '-march=x86-64', '-mtune=generic', '-Wall', '-Wextra', '-Werror', '-I', ROOT / 'airplay/native', '-I', ROOT / 'native',
          ROOT / 'airplay/native/mgu_media_player.c', '-o', RUNTIME / 'bin/mgu-media-player'] + gst_flags + ['-lm'])
     # Base Player (Android screen) sink: framed H.264/PCM from stdin.
     app_flags = subprocess.check_output(['pkg-config', '--cflags', '--libs', 'gstreamer-1.0', 'gstreamer-app-1.0'], text=True).split()

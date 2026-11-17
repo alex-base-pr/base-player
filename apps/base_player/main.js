@@ -7,6 +7,8 @@ const { drawHome } = require('./view');
 const { LogoBridge } = require('./logo_bridge');
 const { MusicArtworkBridge } = require('./music_artwork_bridge');
 const { diagnose, wifiDirect } = require('./diagnose');
+const { t } = require('./i18n');
+const appSettings = require('./app_settings');
 require('./brand_logo').register(require('./kit/record').setImage);
 
 mgu.run({ async start(ctx) {
@@ -16,6 +18,11 @@ mgu.run({ async start(ctx) {
     const video = new VideoBridge(ctx.display);
     const logo = new LogoBridge(ctx.display);
     const artwork = new MusicArtworkBridge(ctx.display, path.join(ctx.dataDir, 'airplay'));
+    // The backend reads this when it starts a receiver or a player, so a
+    // change applies from the next "Connect".
+    const shareSettings = () => appSettings.save(path.join(ctx.dataDir, 'airplay'), { certDateTolerance: ctx.settings.get('certDateTolerance') === true });
+    shareSettings();
+    if (ctx.settings.onChange) ctx.settings.onChange(shareSettings);
     let state = receiver.state, notice = '', closing = false, controlsUntil = 0, diagnosis = '', diagnosedAt = 0;
     let mirrorResumeUntil = 0, disconnecting = null, p2pText = '', p2pAt = 0;
     const isAudio = next => next.mode === 'audio' || next.profile === 'audio';
@@ -41,16 +48,16 @@ mgu.run({ async start(ctx) {
     });
     ui.onClick('BTN_START', () => {
         if (disconnecting) return;
-        notice = receiver.start('auto', screenViewport()) ? '' : (diagnose(uid) || 'Empfangsdienst startet noch. Bitte erneut versuchen.');
+        notice = receiver.start('auto', screenViewport()) ? '' : (diagnose(uid) || t('starting'));
     });
     ui.onClick('BTN_END_VIDEO', () => {
         if (state.mode === 'hls' || state.phase === 'loading' || state.playlistPending)
-            notice = receiver.endVideo() ? '' : 'Videosteuerung noch nicht verfügbar.';
-        else notice = 'Kein Video aktiv.';
+            notice = receiver.endVideo() ? '' : t('video_ctl_unavailable');
+        else notice = t('no_video');
     });
     const endSession = async close => {
         controlsUntil = Date.now() + 8000;
-        notice = 'AirPlay-Verbindung wird getrennt …';
+        notice = t('disconnecting');
         if (!disconnecting) disconnecting = receiver.stop();
         try {
             await disconnecting;
@@ -59,14 +66,14 @@ mgu.run({ async start(ctx) {
         } catch (e) {
             closing = false;
             controlsUntil = Date.now() + 8000;
-            notice = 'Trennen wurde nicht bestätigt. Bitte erneut versuchen.';
+            notice = t('disconnect_unconfirmed');
         } finally { disconnecting = null; }
     };
     ui.onClick('BTN_STOP', () => endSession(false));
     ui.onClick('BTN_MIRROR', () => {
-        if (isAudio(state)) { notice = 'Bildschirmsynchronisierung am iPhone starten.'; return; }
+        if (isAudio(state)) { notice = t('start_mirror_hint'); return; }
         if (state.detached || state.mode === 'hls' || state.playlistPending) { notice = ''; receiver.resumeMirror(); controlsUntil = 0; }
-        else notice = 'Kein Video aktiv – die Spiegelung läuft bereits.';
+        else notice = t('mirror_already');
     });
     ui.onClick('BTN_CLOSE', () => endSession(true));
     const musicControl = action => {
@@ -81,7 +88,7 @@ mgu.run({ async start(ctx) {
             // Off -> repeat all -> repeat one -> off.
             value = music.repeat === 0 ? 2 : music.repeat === 2 ? 1 : 0;
         }
-        notice = receiver.musicControl(action, value) ? '' : 'Musiksteuerung noch nicht verfügbar.';
+        notice = receiver.musicControl(action, value) ? '' : t('music_ctl_unavailable');
     };
     // The BMW renderer owns display focus. CarPlay, a call, or Home may hide
     // this view without ending the phone's AirPlay session.
@@ -122,8 +129,8 @@ mgu.run({ async start(ctx) {
         } else if (transitioning || resizing) {
             c.clear('#000000');
             logo.draw(c, size.w / 2 - 32, size.h / 2 - 70, 64, 64);
-            c.text(state.sender === 'android' && state.mode === 'mirror' ? 'Android verbunden – warte auf das erste Bild …' :
-                state.phase === 'loading' || resizing ? 'Video wird geladen …' : 'Bildschirmspiegelung wird fortgesetzt …',
+            c.text(state.sender === 'android' && state.mode === 'mirror' ? t('android_wait_frame') :
+                state.phase === 'loading' || resizing ? t('video_loading') : t('mirror_resuming'),
                 size.w / 2, size.h / 2 + 32, 28, '#c0cedd', { font: 'airplay', align: 'center' });
         } else {
             // While the receiver service is unreachable, say why (every 2 s).

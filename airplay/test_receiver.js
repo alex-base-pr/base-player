@@ -333,7 +333,7 @@ const { Receiver } = require('../apps/base_player/receiver');
         // SIGKILL dispatch proves that Node has observed actual closure.
         const deadlines=[], signals=[];
         const isolated={ module:{exports:{}}, Buffer,__dirname:path.join(__dirname,'../apps/base_player'),
-            require:name=>name==='./audio_metadata'?require('../apps/base_player/audio_metadata'):require(name),
+            require:name=>name.indexOf('./')===0?require('../apps/base_player/'+name.slice(2)):require(name),
             process:{env:process.env,pid:process.pid,getuid:()=>process.getuid(),kill:()=>{const error=Error('missing group');error.code='ESRCH';throw error;}},
             setInterval:()=>({}),clearInterval:()=>{},
             setTimeout:(fn,ms)=>{const timer={fn,ms};deadlines.push(timer);return timer;},

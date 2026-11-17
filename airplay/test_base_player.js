@@ -1,0 +1,58 @@
+'use strict';
+// Base Player additions on top of the imported receiver: the cause of a
+// failed video reaches the screen, and the certificate-date setting reaches
+// the native processes. GPL-3.0-or-later.
+const assert = require('assert'), fs = require('fs'), os = require('os'), path = require('path');
+const { t, STRINGS, MEDIA_ERRORS, mediaError } = require('../apps/base_player/i18n');
+const settings = require('../apps/base_player/app_settings');
+const { drawHome } = require('../apps/base_player/view');
+
+// Error codes: every native name has a text, unknown ones degrade safely.
+const header = fs.readFileSync(path.join(__dirname, '../native/bp_error.c'), 'utf8');
+const names = /NAMES\[BP_ERR_COUNT\] = \{([^}]*)\}/.exec(header)[1].match(/"[a-z_]+"/g).map(s => s.slice(1, -1));
+assert.deepStrictEqual(names.slice().sort(), MEDIA_ERRORS.slice().sort(), 'i18n.js lists exactly the native error names');
+for (const name of names) assert(STRINGS.en['err_' + name], 'English text for ' + name);
+assert.strictEqual(mediaError('dns'), 'dns');
+assert.strictEqual(mediaError('player_certificate'), 'certificate');
+assert.strictEqual(mediaError('player_network_failed'), 'media_failed', 'the old catch-all code is no longer a cause');
+assert.strictEqual(mediaError(undefined), 'media_failed');
+
+// Strings stay inside the baked atlas (ASCII, the German letters, a few symbols).
+for (const key of Object.keys(STRINGS.en))
+    assert(!/[^\x20-\x7eäöüÄÖÜß„“…–·]/.test(STRINGS.en[key]), 'glyph outside the atlas in ' + key);
+
+// The home screen shows the cause for each code, and nothing of the old brand.
+function labels(state, notice) {
+    const out = [];
+    const c = { h: 520 };
+    ['clear', 'gradientRect', 'fillRect', 'card', 'roundRect', 'strokeRoundRect', 'line', 'circle', 'quad', 'image'].forEach(m => { c[m] = () => {}; });
+    c.text = s => { out.push(String(s)); return 0; };
+    drawHome(c, state, notice || '', null, null, null);
+    return out;
+}
+for (const name of names) {
+    const shown = labels({ phase: 'waiting', mode: 'waiting', pin: '1234', error: name });
+    assert(shown.includes(t('err_' + name)), name + ' is shown with its own text');
+}
+assert(labels({ phase: 'waiting', error: 'something_new' }).every(s => !/undefined|err_/.test(s)), 'an unknown code shows no raw key');
+assert(labels({ phase: 'idle' }).every(s => !/pllana/i.test(s)));
+assert(labels({ phase: 'idle' }).includes('Base Player'));
+
+// The setting file: off unless it clearly says on.
+const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'base-player-settings-'));
+try {
+    assert.strictEqual(settings.certDateTolerance(dir), false, 'no file means off');
+    assert(settings.save(dir, { certDateTolerance: true }));
+    assert.strictEqual(settings.certDateTolerance(dir), true);
+    assert.strictEqual(fs.statSync(path.join(dir, settings.NAME)).mode & 0o077, 0, 'private file');
+    assert(settings.save(dir, { certDateTolerance: 'yes' }));
+    assert.strictEqual(settings.certDateTolerance(dir), false, 'only a real true turns it on');
+    fs.writeFileSync(path.join(dir, settings.NAME), '{broken');
+    assert.strictEqual(settings.certDateTolerance(dir), false, 'a damaged file means off');
+} finally { fs.rmSync(dir, { recursive: true, force: true }); }
+
+// The receiver and the player hand the setting to the native side.
+for (const file of ['receiver.js', 'media_player.js'])
+    assert(/BP_CERT_DATE_TOLERANCE: certDateTolerance\(this\.dataDir\) \? '1' : '0'/.test(fs.readFileSync(path.join(__dirname, '../apps/base_player', file), 'utf8')), file);
+assert(/g_getenv\("BP_CERT_DATE_TOLERANCE"\)/.test(fs.readFileSync(path.join(__dirname, 'native/mgu_hls_output.h'), 'utf8')));
+console.log('Base Player error causes, strings and certificate-date setting passed');

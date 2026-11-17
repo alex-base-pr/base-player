@@ -5,6 +5,8 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const { AudioMetadata } = require('./audio_metadata');
+const { mediaError } = require('./i18n');
+const { certDateTolerance } = require('./app_settings');
 
 function validVideoViewport(width, height) {
     return Number.isInteger(width) && Number.isInteger(height) && width >= 16 && height >= 16 &&
@@ -173,6 +175,7 @@ class Receiver extends EventEmitter {
             // GStreamer 1.22 can select hlsdemux2 even for playbin2. It requires
             // a streams-aware context; the legacy player must use hlsdemux.
             GST_PLUGIN_FEATURE_RANK: 'hlsdemux2:0',
+            BP_CERT_DATE_TOLERANCE: certDateTolerance(this.dataDir) ? '1' : '0',
             ALSA_PLUGIN_DIR: '/usr/lib/alsa-lib', DNSSD_UDS_PATH: '/run/mdnsd/mdnsd_uds',
             MGU_HLS_AUDIO_SINK: audio,
             GIO_MODULE_DIR: path.join(this.runtime, 'gio'),
@@ -345,9 +348,11 @@ class Receiver extends EventEmitter {
                 }
                 if (line === 'MGU_MEDIA_REJECTED')
                     this.update({ phase: 'waiting', frame: null, error: 'media_unsupported' });
-                if (line === 'MGU_MEDIA_FAILED') {
+                // Base Player: the runtime names the cause (native/bp_error.h).
+                const failed = /^MGU_MEDIA_FAILED(?: ([a-z_]{1,32}))?$/.exec(line);
+                if (failed) {
                     hideOldFrame();
-                    this.update({ phase: 'waiting', frame: null, playlistPending: false, error: 'media_failed' });
+                    this.update({ phase: 'waiting', frame: null, playlistPending: false, error: mediaError(failed[1]) });
                 }
                 if (line === 'MGU_MODE hls' || line === 'MGU_MODE mirror') {
                     const mode = line.slice(9);

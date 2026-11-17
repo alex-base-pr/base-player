@@ -3,6 +3,7 @@ const assert=require('assert'),fs=require('fs'),path=require('path'),vm=require(
 const clicks={},visible=[],focus=[];
 let receiver,started,renderLoop,presented,musicControl,lastNotice,homeFrames=0,videoReady=true,clock=10000,closedViews=0,stopResult=null,videoDraws=0;
 const signals={},profiles=[],musicCommands=[],startViewports=[],viewports=[];
+const sharedSettings=[],settingValues={certDateTolerance:false};let settingsChanged;
 class BackendClient extends EventEmitter {
     constructor(){super();receiver=this;this.state={};this.stops=0;this.starts=0;}
     connect(){} start(profile,viewport){profiles.push(profile);startViewports.push([viewport.width,viewport.height]);this.starts++;return true;} stop(){this.stops++;return stopResult||Promise.resolve();} command(){}
@@ -14,17 +15,22 @@ class BackendClient extends EventEmitter {
 }
 const ctx={ui:{onClick:(id,fn)=>{clicks[id]=fn;},onVisible:fn=>visible.push(fn),onFocus:fn=>focus.push(fn),
     close:()=>{closedViews++;return Promise.resolve();},image:()=>Promise.resolve()},log:{info(){},warn(){}},display:{gpu:{screen:{w:1920,h:504}},setPresentation:on=>{presented=on;}},
-    loop:(name,hz,fn)=>{renderLoop=fn;},canvas:()=>({clear(){},text(){}}),dataDir:'/app/data'};
+    loop:(name,hz,fn)=>{renderLoop=fn;},canvas:()=>({clear(){},text(){}}),dataDir:'/app/data',
+    settings:{get:key=>settingValues[key],onChange:fn=>{settingsChanged=fn;}}};
 ctx.display.contentSize=()=>({w:1600,h:Math.floor((ctx.display.gpu.screen.h-48)/(ctx.display.gpu.screen.w/1600))});
 const modules={path,'./kit/mgu':{run:app=>{started=app.start(ctx);}},'./backend_client':{BackendClient},
     './video_bridge':{VideoBridge:class{ready(){return videoReady;} detach(){} attach(){return true;}draw(){videoDraws++;}}},
     './view':{drawHome(c,s,n,l,a,control){homeFrames++;musicControl=control;lastNotice=n;}},'./logo_bridge':{LogoBridge:class{draw(){}}},
     './music_artwork_bridge':{MusicArtworkBridge:class{update(){}drop(){}}},
-    './brand_logo':{register(){}},'./kit/record':{setImage(){}},'./diagnose':{diagnose:()=>'',wifiDirect:()=>''}};
+    './brand_logo':{register(){}},'./i18n':require('../apps/base_player/i18n'),'./app_settings':{save(dir,value){sharedSettings.push([dir,value]);return true;}},'./kit/record':{setImage(){}},'./diagnose':{diagnose:()=>'',wifiDirect:()=>''}};
 vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../apps/base_player/main.js'),'utf8'),{
     require:name=>{assert(modules[name],name);return modules[name];},
     process:{on:(name,fn)=>{signals[name]=fn;},getuid:()=>12233,exit(){}},Date:{now:()=>clock},Promise,console
 });
+// The certificate-date setting reaches the backend through the shared data folder, off by default.
+assert.strictEqual(JSON.stringify(sharedSettings),JSON.stringify([['/app/data/airplay',{certDateTolerance:false}]]));
+settingValues.certDateTolerance=true;settingsChanged();
+assert.strictEqual(JSON.stringify(sharedSettings[1]),JSON.stringify(['/app/data/airplay',{certDateTolerance:true}]));
 Promise.resolve(started).then(async()=>{
     clicks.BTN_START();assert.strictEqual(receiver.starts,1);
     assert.deepStrictEqual(profiles,['auto']);
@@ -82,7 +88,7 @@ Promise.resolve(started).then(async()=>{
     confirmStop();await closePending;assert.strictEqual(closedViews,1);
     stopResult=Promise.reject(Error('receiver_stop_failed'));
     await clicks.BTN_CLOSE();assert.strictEqual(closedViews,1,'failed disconnect must keep the UI open');
-    await renderLoop();assert(/nicht bestätigt/.test(lastNotice),'failed disconnect is visible and retryable');
+    await renderLoop();assert(/not confirmed/.test(lastNotice),'failed disconnect is visible and retryable');
     stopResult=null;
     await clicks.BTN_STOP();assert.strictEqual(receiver.stops,4,'failed stop can be retried');
     await signals.SIGTERM();signals.exit();

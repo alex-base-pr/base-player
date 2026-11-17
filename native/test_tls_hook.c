@@ -4,13 +4,15 @@
 #include <gio/gio.h>
 #include <gst/gst.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "bp_gst.h"
 
 static int failures;
 
 static void check(const char *what, gboolean tolerate, guint want) {
-    BpTls tls = { 0, 0, 0, 0 };
+    BpTls tls;
+    memset(&tls, 0, sizeof tls);
     GstElement *bin = gst_pipeline_new(NULL);
     GstElement *inner = gst_bin_new(NULL);
     GstElement *source = gst_element_factory_make("rtspsrc", NULL);
