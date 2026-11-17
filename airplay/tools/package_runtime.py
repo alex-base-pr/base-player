@@ -53,7 +53,7 @@ def main():
     unit = (ROOT / 'airplay/runtime' / UNIT).read_bytes()
     component = {
         'id': TOOL, 'kind': 'tool', 'version': args.version,
-        'title': 'Base Player receiver runtime',
+        'title': 'Base Player receiver',
         'description': 'UxPlay receiver with GStreamer video/HLS and SmartX audio for Base Player',
         'mguHmi': ['ID7'], 'uninstallable': True,
         'requires': {'mgu-deploy': '0.7.17'},

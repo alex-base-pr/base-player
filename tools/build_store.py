@@ -143,7 +143,7 @@ def main():
         if args.release_package:
             shutil.rmtree(package / 'node_modules' / 'oap-sdk', ignore_errors=True)
         shutil.copyfile(work / 'LICENSE', package / 'javascript/kit/LICENSE.idrive7-apps')
-        for name in ['LICENSE', 'LICENSE.md', 'THIRD_PARTY_NOTICES.md']:
+        for name in ['LICENSE', 'NOTICE.md', 'THIRD_PARTY_NOTICES.md']:
             shutil.copyfile(ROOT / name, package / name)
         artifact = output / (args.app + '@' + args.version + '.tgz')
         # Reproducible archive: sorted members, root-owned, fixed mtime.

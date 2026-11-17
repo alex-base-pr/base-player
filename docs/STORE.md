@@ -1,80 +1,67 @@
 # Installing through the MGU Store
 
-Base Player installs from this repository with the
-[MGU Store](https://github.com/robertnisipeanu/mgu-store) — on the head unit's
-screen, no computer. The Store reads `mgu-repo.json` ("repo tree" layout in its
-`docs/PUBLISHING.md`) and builds the app on the head unit.
+Base Player installs with the [MGU Store](https://github.com/robertnisipeanu/mgu-store)
+on the head unit's screen. It is two components:
 
-**What you get today: the interface only.** There is no receiver in this build;
-the screen says so. Nothing is received from a phone yet.
+| Component | Kind | What it is |
+| --- | --- | --- |
+| `base-player-receiver` | tool | the receiver runtime: UxPlay, a private GStreamer, the players, a root supervisor that sets the firewall rules for the app |
+| `base_player` | app | the iDrive app; built without BMW's SDK, which the Store adds from a stock app on the unit |
+
+Both are built, tested and published by GitHub Actions
+(`.github/workflows/store-release.yml`). A push to `main` with a version that
+has no release yet publishes release `v<version>` and then updates the
+`catalog` release the Store reads.
+
+## Before the first install
+
+1. The workflow must have run once on `main`, so that the releases exist.
+   Check the repository's Releases page for `v<version>` and `catalog`.
+2. The Store needs a GitHub token for this repository, because it is private
+   (the Store's installer has a `token` command; its Settings have "Accounts").
+3. From the Store's own sources the head unit needs `mgu-uplink`, `mgu-render`
+   and `mgu-deploy`; the catalog asks for them and the Store installs them
+   first.
 
 ## On the head unit
 
-1. Store → Settings → sources → add the GitHub repository
-   `alex-base-pr/base-player`, channel **branch `main`**.
-   The repository is private, so the Store needs a GitHub token for it (the
-   Store's installer has a `token` command; its Settings have "Accounts").
-2. The head unit needs internet for the build (the Store's uplink: phone
-   hotspot, tethered phone, LTE stick). The build downloads about 33 MB.
-3. Open **Base Player** in the Store and press Install.
+1. Store, Settings, sources: add the GitHub repository
+   `alex-base-pr/base-player` and choose **Releases**.
+2. Open **Base Player** and press Install. The Store installs the receiver
+   first, then the app.
+3. Disconnect CarPlay in iDrive, open Base Player, press **Connect** and pick
+   "Base Player" in the iPhone's Screen Mirroring or AirPlay list.
 
-Without internet in the car: the Store's `mgu-install.js usb-repo` copies a
-repository to a USB stick, but this build would still need to download the kit,
-so that route does not work yet.
+The setting **Ignore certificate dates (wrong car clock)** is under the
+**Settings** button. It applies from the next Connect.
 
-## What the build does
+## If another receiver is installed
 
-`mgu-repo.json` tells the Store to run `tools/build_store.py` for every folder
-in `apps/`. The script:
+Base Player uses the same network ports as the project it is derived from
+(`pllana-airplay-receiver`, and its older `mgu-airplay`). Its systemd unit
+declares a conflict with both, so starting Base Player's receiver stops
+theirs. Nothing of theirs is uninstalled or disabled; remove one of the two
+in the Store to settle it.
 
-1. downloads one pinned commit of the app kit
-   ([idrive7-apps](https://github.com/cauliflowermossgrape/idrive7-apps), MIT)
-   through the proxy the Store provides, and refuses it unless its SHA-256
-   matches the pinned value;
-2. unpacks only `kit/` and `LICENSE` from it;
-3. runs the kit's own `build.py` with this app and the `oap-sdk` module the
-   Store generated from the head unit's donor app;
-4. leaves `<id>@<version>.tgz` in `MGU_OUT`.
+Base Player never stops, restarts or controls the stock CarPlay service.
 
-No BMW SDK and no kit code is kept in this repository.
+## Updating
 
-To move to a newer kit, change `KIT_COMMIT` and `KIT_SHA256` in
-`tools/build_store.py` together. GitHub does not promise that a commit's
-archive stays byte-identical for ever; if the build starts failing on the
-checksum with an unchanged pin, that is the cause.
-
-## How the app sits on the kit
-
-`main.js` is the entry point (`mgu.run`). `view.js` draws through the small
-contract in `docs/CANVAS_API.md`; `kit_canvas.js` maps it onto the kit's
-canvas: the 720-high design is scaled into the kit's 1600x520 page, text y is
-converted from line top to baseline, and the kit's `label` and `bold` fonts are
-used.
-
-**English only on the head unit.** The kit's font atlases are ASCII plus a few
-symbols. Ukrainian needs a Cyrillic atlas with і, ї, є, ґ baked and shipped
-with the app; until then the on-unit build has no language setting. The
-emulator shows both languages.
+Raise `version` in `apps/base_player/app.json` and `package.json` (they must
+match) and in `airplay/tools/build_runtime.py`, and push to `main`. Published
+versions are never overwritten.
 
 ## Verified, and not
 
-Verified on a desktop:
-
-- the kit's `build.py` stages the app from `app.json` + `main.js` (preview
-  mode, no SDK), through `tools/build_store.py` with the pinned archive;
-- the script refuses a wrong archive and a missing SDK;
-- `tests/test_app.js`: every English string uses only glyphs the kit fonts
-  have, every box and text anchor lands inside the 1600x520 page.
+Verified on a development machine: the JavaScript tests, the build of the two
+changed native sources, the YAML and the catalog script's syntax.
 
 Not verified:
 
-- **the build on a head unit** (Python 3.12 there, the proxy, the 10-minute
-  and 200 MB limits, the generated `oap-sdk`);
-- **a rendered frame with the kit's real fonts** — text widths differ from the
-  browser emulator, so lines may run longer or shorter than there;
-- the buttons and settings screen the kit generates from `app.json`.
-
-## Still to come
-
-The receiver. Native programs reach the head unit as a Store *tool* (a prebuilt
-x86-64 kit with `component.json`, built in CI), listed beside the app.
+- **the workflow itself in this repository** — the full runtime build, the
+  native tests and the Store's package validation run only there;
+- **the catalog for a private repository** — the publish job writes the
+  assets' API URLs into it, as the Store's documentation requires; this path
+  was written from that documentation and has not run;
+- **anything on a head unit**: install, the receiver starting, pairing, video,
+  sound, the six-button bar and the settings screen.

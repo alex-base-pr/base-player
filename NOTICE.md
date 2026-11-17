@@ -4,37 +4,51 @@ Base Player is free software under the **GNU General Public License, version 3
 or (at your option) any later version** — see [LICENSE](LICENSE). It comes
 without warranty.
 
-Copyright (C) 2026 Alex Rudenko, for everything not listed below.
+## Derived from pllanaio/bmw-airplay
 
-## Adapted from pllanaio/bmw-airplay
+Base Player is a modified copy of **PllanaCast for BMW**,
+<https://github.com/pllanaio/bmw-airplay>, taken at commit
+`4604be3b62909201d39de30c23bcba3081887b7b` (9 November 2026).
 
-<https://github.com/pllanaio/bmw-airplay> — Copyright (C) 2026 Leon Pllana
-IT-Solutions, GPL-3.0-or-later. The following parts of Base Player are adapted
-from it and remain under that licence:
+    Copyright (C) 2026 Leon Pllana IT-Solutions
+    Licensed under GPL-3.0-or-later
 
-| Here | Adapted from | What was taken, what changed |
-| --- | --- | --- |
-| `apps/base_player/view.js` | `apps/pllana_airplay/view.js` | Screen layout (pairing card, three mode cards, now-playing row), the state model it renders and the `text()` helper. Changed: all text goes through i18n, an error screen that names the cause, palette, icons. |
-| `apps/base_player/app.json` | `apps/pllana_airplay/app.json` | Screen definition, hardware button ids and resource limits. Changed: identity, English labels, settings. |
-| `apps/base_player/i18n.js` | strings in `apps/pllana_airplay/*.js` | Several status texts are translations of the German originals. The error texts are new. |
+Copied from it, and since changed: everything under `airplay/`,
+`apps/base_player/` (their `apps/pllana_airplay/`), `assets/`, `tools/`,
+`test/`, `config/`, `package.json`, `mgu-repo.json`,
+`THIRD_PARTY_NOTICES.md` and `.github/workflows/store-release.yml`. Their
+documentation is kept unchanged under `docs/upstream/`. The first commit that
+contains this code imports it unmodified; the git history after it is the
+record of changes. In summary, as of November 2026:
 
-Written for Base Player and not derived from that project: everything in
-`native/`, `apps/base_player/player_proto.js`, `main.js`, `kit_canvas.js`,
-`tools/`, `emulator/`, `tests/`. The idea
-of a line-based player driven over stdin, and the observation that every
-network failure there ends up as one `network_failed` code, come from reading
-its `airplay/native/mgu_media_player.c`; no code was taken from it.
+- renamed throughout (ids, paths, receiver name); their name, logo, app icon
+  and links removed; their Android app and its build not included;
+- the install hooks and supervisor logic that stopped, disabled and
+  uninstalled an older runtime removed;
+- the cause of a failed video reported instead of one generic code, and an
+  optional tolerance for certificate dates added, in `mgu_hls_output.h`,
+  `mgu_media_player.c` and `patch_hls_lifecycle.py`;
+- every interface string moved to `i18n.js` and translated to English;
+- a settings entry and the path that carries it to the native processes;
+- the release workflow adapted to a private repository.
 
-No name, logo or branding of that project is used.
+## Written for Base Player
 
-## Built for the MGU app kit
+Copyright (C) 2026 Alex Rudenko, GPL-3.0-or-later: `native/` (error
+classification, certificate policy, host player), `apps/base_player/i18n.js`
+and `app_settings.js`, `airplay/test_base_player.js`,
+`airplay/tools/prepare_brand.py` and the mark it draws, `emulator/`, `tests/`,
+`docs/STORE.md`, `docs/NATIVE_PLAN.md`.
 
-<https://github.com/cauliflowermossgrape/idrive7-apps> — MIT. The app targets
-that kit's runtime and canvas API (`docs/CANVAS_API.md` describes the part it
-uses). No kit code is included in this repository; `tools/build_store.py`
-downloads a pinned commit of it at build time.
+## Other components
+
+UxPlay, mDNSResponder, GStreamer and the other parts the runtime is built
+from or bundles, the Ubuntu font, and the MGU app kit and Store this targets
+are listed with their licences in
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## Trademarks
 
-BMW and iDrive are trademarks of BMW AG; AirPlay and iPhone are trademarks of
-Apple Inc. This project is not affiliated with or endorsed by either.
+BMW and iDrive are trademarks of BMW AG; AirPlay, CarPlay and iPhone are
+trademarks of Apple Inc. "PllanaCast" belongs to its owner. Base Player is
+not affiliated with or endorsed by any of them.

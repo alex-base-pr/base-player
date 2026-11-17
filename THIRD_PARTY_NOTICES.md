@@ -1,7 +1,10 @@
-# Drittanbieter
+# Third-party components
+
+This list comes from the original project (German) and still applies; the
+project's own licence statement is in LICENSE and NOTICE.md.
 
 Der eigene Projektcode steht unter GPL-3.0-or-later; siehe LICENSE und
-LICENSE.md. Die folgenden Bestandteile behalten ihre gesonderten Bedingungen.
+NOTICE.md. Die folgenden Bestandteile behalten ihre gesonderten Bedingungen.
 
 - **UxPlay** — https://github.com/FDH2/UxPlay, Version 1.73.7,
   Commit df67c212a433cf6dda3676dd40c097900d24e645. GPL-3.0-or-later
@@ -34,6 +37,6 @@ LICENSE.md. Die folgenden Bestandteile behalten ihre gesonderten Bedingungen.
   enthaltene vorbereitete airplay.json-Glyphenatlas ist aus dieser
   freien Schrift abgeleitet und unterliegt ebenfalls deren Bedingungen.
 
-Das App-Logo wurde für Leon Pllana IT-Solutions erstellt; Herkunft und Prompt
-sind unter airplay/branding dokumentiert. BMW und Apple/AirPlay sind Marken
-ihrer jeweiligen Inhaber. Es wird keine offizielle Unterstützung behauptet.
+Das Zeichen von Base Player wird von airplay/tools/prepare_brand.py
+gezeichnet (airplay/branding). BMW und Apple/AirPlay sind Marken ihrer
+jeweiligen Inhaber. Es wird keine offizielle Unterstützung behauptet.

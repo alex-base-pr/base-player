@@ -78,7 +78,7 @@ static void mgu_hls_viewport_free(gpointer data) {
 static BpTls mgu_bp_tls;
 
 /* Wire name of the cause of a bus error on `player` (bp_error.h). */
-static const char *mgu_bp_error(GstMessage *message, GstElement *player) {
+G_GNUC_UNUSED static const char *mgu_bp_error(GstMessage *message, GstElement *player) {
     gchar *uri = NULL;
     g_object_get(player, "current-uri", &uri, NULL);
     if (!uri) g_object_get(player, "uri", &uri, NULL);

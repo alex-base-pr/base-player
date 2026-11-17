@@ -78,7 +78,7 @@ for width, height, name in fixtures:
             % (name, width, height, name))
 flags = subprocess.check_output(['pkg-config', '--cflags', '--libs', 'gstreamer-1.0', 'gio-2.0'], text=True).split()
 binary = WORK / 'test-hls'
-run(['gcc', '-O2', '-Wall', '-Wextra', '-Werror', ROOT / 'airplay/native/test_hls_output.c', '-o', binary] + flags)
+run(['gcc', '-O2', '-Wall', '-Wextra', '-Werror', '-I', ROOT / 'native', ROOT / 'airplay/native/test_hls_output.c', '-o', binary] + flags)
 class Handler(http.server.SimpleHTTPRequestHandler):
     def log_message(self, *args): pass
 handler = functools.partial(Handler, directory=str(WORK))

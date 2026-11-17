@@ -22,7 +22,7 @@ const buttons = appJson.screens[0].buttons; // [[id,label],...]
 // id -> i18n key so the button bar follows the language toggle
 const BTN_KEYS = {
     BTN_START: 'btn_start', BTN_END_VIDEO: 'btn_end_video',
-    BTN_MIRROR: 'btn_mirror', BTN_STOP: 'btn_stop', BTN_CLOSE: 'btn_close',
+    BTN_MIRROR: 'btn_mirror', BTN_STOP: 'btn_stop', BTN_CLOSE: 'btn_close', BTN_SETTINGS: 'btn_settings',
 };
 
 // Map a scene phase to a hardware button id, so clicking a button can jump to a
@@ -40,6 +40,9 @@ function mod(name, src) {
 const registry =
     mod('canvas', canvasSrc) +
     mod('i18n', i18nSrc) +
+    // The real brand_logo.js inflates a baked image with zlib; the emulator
+    // draws a stand-in mark instead (canvas.js image()).
+    mod('brand_logo', "module.exports = { ID: 0x42500001, pixels: null, register: function(){} };") +
     mod('view', viewSrc) +
     mod('fixtures', fixturesSrc);
 
@@ -135,8 +138,8 @@ const html = `<!DOCTYPE html>
     <div class="sep"></div>
     <div class="grp">
       <label>Screen</label>
-      <button id="h-720" class="active">720</button>
-      <button id="h-520">520</button>
+      <button id="h-520" class="active">520</button>
+      <button id="h-416">416</button>
     </div>
     <span class="scene-name" id="scene-name"></span>
   </div>
@@ -166,18 +169,18 @@ ${registry}
 
   var canvas = document.getElementById('screen');
   var ctx = canvas.getContext('2d');
-  var H = 720;          // canvas body logical height (720 or 520)
+  var H = 520;          // canvas body logical height (520 or 416)
   var idx = 0;          // current scene
   var lang = 'en';
   var curTargets = [];
 
-  /* --- layout: crisp scaling, shim draws in 1920xH logical units --- */
+  /* --- layout: crisp scaling, shim draws in 1600xH logical units --- */
   function layout(){
     var cssW = canvas.parentNode.clientWidth || 960;
     var dpr = window.devicePixelRatio || 1;
-    var scale = cssW / 1920;
-    canvas.style.height = (cssW * H / 1920) + 'px';
-    canvas.width = Math.max(1, Math.round(1920 * scale * dpr));
+    var scale = cssW / 1600;
+    canvas.style.height = (cssW * H / 1600) + 'px';
+    canvas.width = Math.max(1, Math.round(1600 * scale * dpr));
     canvas.height = Math.max(1, Math.round(H * scale * dpr));
     ctx.setTransform(scale * dpr, 0, 0, scale * dpr, 0, 0);
     render();
@@ -185,9 +188,9 @@ ${registry}
 
   function render(){
     t.set(lang);
-    var c = makeCanvas(ctx, 1920, H);
+    var c = makeCanvas(ctx, 1600, H);
     var scene = fixtures[idx] || fixtures[0];
-    try { drawHome(c, scene.state || {}, t); }
+    try { drawHome(c, scene.state || {}, scene.notice || '', null, null, function(){}); }
     catch(e){ console.error('drawHome threw', e); }
     curTargets = c._targets || [];
     document.getElementById('scene-name').textContent = scene.name || '';
@@ -209,7 +212,7 @@ ${registry}
   /* --- canvas click -> logical coords -> hit targets --- */
   canvas.addEventListener('click', function(ev){
     var r = canvas.getBoundingClientRect();
-    var x = (ev.clientX - r.left) / r.width * 1920;
+    var x = (ev.clientX - r.left) / r.width * 1600;
     var y = (ev.clientY - r.top) / r.height * H;
     for (var i = curTargets.length - 1; i >= 0; i--){
       var tg = curTargets[i];
@@ -249,12 +252,12 @@ ${registry}
   /* --- short-screen toggle --- */
   function setH(h){
     H = h;
-    document.getElementById('h-720').classList.toggle('active', h === 720);
     document.getElementById('h-520').classList.toggle('active', h === 520);
+    document.getElementById('h-416').classList.toggle('active', h === 416);
     layout();
   }
-  document.getElementById('h-720').onclick = function(){ setH(720); };
   document.getElementById('h-520').onclick = function(){ setH(520); };
+  document.getElementById('h-416').onclick = function(){ setH(416); };
 
   /* --- status bar clock + signal bars --- */
   var barsEl = document.getElementById('bars');

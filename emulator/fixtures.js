@@ -1,14 +1,18 @@
 'use strict';
-/* Representative states for the emulator's scene picker. */
+/* Representative states for the emulator's scene picker: what the backend
+ * sends (apps/base_player/receiver.js, backend.js) and, per scene, the notice
+ * the frontend would show after a button press. */
+var MUSIC = { title: 'Nightcall', artist: 'Kavinsky', album: 'OutRun', playbackState: 'playing', shuffle: 1, repeat: 2,
+    controls: { previous: true, playPause: true, next: true, shuffle: true, repeat: true } };
 module.exports = [
-  { name: 'Ready (code)', state: { phase: 'idle', pin: '569 156', connected: false } },
-  { name: 'Audio (metadata)', state: { phase: 'audio', connected: true, music: { title: 'Nightcall', artist: 'Kavinsky', album: 'OutRun', playbackState: 'playing', shuffle: 1, repeat: 2, controls: { previous:1, playPause:1, next:1, shuffle:1, repeat:1 } } } },
-  { name: 'Audio (waiting)', state: { phase: 'audio', connected: false, pin: '569 156', music: {} } },
-  { name: 'Screen mirroring', state: { phase: 'mirror', connected: true, mode: 'mirror' } },
-  { name: 'Video playing', state: { phase: 'video', connected: true, mode: 'hls' } },
-  { name: 'Loading', state: { phase: 'loading', buffering: true } },
-  { name: 'Error: certificate/clock', state: { phase: 'error', error: 'certificate' } },
-  { name: 'Error: no internet', state: { phase: 'error', error: 'offline' } },
-  { name: 'Error: format', state: { phase: 'error', error: 'unsupported' } },
-  { name: 'Notice', state: { phase: 'idle', pin: '569 156', notice: 'Receiver still starting. Try again.' } },
+  { name: 'Not connected', state: { phase: 'idle' } },
+  { name: 'Pairing code', state: { phase: 'waiting', mode: 'waiting', pin: '5691' } },
+  { name: 'Connected, waiting', state: { phase: 'waiting', mode: 'waiting', connected: true } },
+  { name: 'Screen mirroring', state: { phase: 'mirroring', mode: 'mirror', connected: true, frame: { width: 1280, height: 720 } } },
+  { name: 'Video playing', state: { phase: 'playing', mode: 'hls', connected: true } },
+  { name: 'Music (metadata)', state: { phase: 'audio', mode: 'audio', connected: true, music: MUSIC } },
+  { name: 'Music (waiting)', state: { phase: 'waiting', mode: 'audio', pin: '5691', music: {} } },
+  { name: 'Error: certificate / clock', state: { phase: 'waiting', mode: 'waiting', pin: '5691', error: 'certificate' } },
+  { name: 'Error: no internet', state: { phase: 'waiting', mode: 'waiting', pin: '5691', error: 'offline' } },
+  { name: 'Notice', state: { phase: 'idle' }, notice: 'Receiver service is still starting. Please try again.' },
 ];

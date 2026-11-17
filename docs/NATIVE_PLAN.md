@@ -25,14 +25,36 @@ setting `cert_date_tolerance` on, only `G_TLS_CERTIFICATE_EXPIRED` and
 `G_TLS_CERTIFICATE_NOT_ACTIVATED` are forgiven. Chain, signature and host name
 are verified as always. Off by default.
 
-## What is implemented (`native/`)
+## What is implemented
+
+`native/` holds Base Player's own C:
 
 - `bp_error.c` — plain C, no GLib: `BpErrorInput` -> code. Order: exact
   certificate flags, stream kind, HTTP status, own probe of the host, error text.
 - `bp_gst.c` — GStreamer glue: certificate policy, reading `GST_MESSAGE_ERROR`,
-  the host probe.
-- `bp_player.c` — direct-video player: commands on stdin, `BP …` event lines on
-  stdout; `apps/base_player/player_proto.js` turns them into state for `view.js`.
+  the host probe, and the last remote URL a source was given.
+- `bp_player.c` — a small host player used to test the two above against real
+  endpoints (`tests/e2e_player.js`). It is not shipped.
+
+They are compiled into the receiver runtime (`airplay/`, from
+pllanaio/bmw-airplay) at three points:
+
+- `airplay/native/mgu_hls_output.h` includes both sources and, for every
+  playbin it configures, attaches the certificate policy. The setting arrives
+  as `BP_CERT_DATE_TOLERANCE=1` in the process environment.
+- UxPlay's bus handler (`airplay/tools/patch_hls_lifecycle.py`) prints
+  `MGU_MEDIA_FAILED <code>` for AirPlay direct video.
+- `airplay/native/mgu_media_player.c` prints `MGU_PLAYER error <code>` for
+  DLNA playback.
+
+`apps/base_player/receiver.js` and `backend.js` turn the code into
+`state.error`; `view.js` shows the text `err_<code>` from `i18n.js`. The
+setting travels from the app's settings screen through
+`apps/base_player/app_settings.js` (a file in the app's data folder) to
+`receiver.js` and `media_player.js`, which set the environment variable.
+
+AirPlay hands playbin a playlist on localhost whose segments are remote, so
+the host probe uses the last remote URL a source was given, not playbin's URI.
 
 ## Findings that shaped it
 
@@ -75,13 +97,10 @@ Host used: macOS, GStreamer 1.28, libsoup 3, GnuTLS.
 
 ## Not verified — needs the car
 
-- Building for the MGU (x86-64 Linux with its own GStreamer runtime).
-- Which of the three hooks the head unit's GStreamer offers.
+- The runtime build with these changes (GitHub Actions) and everything on the
+  head unit.
+- Which hook the runtime's GStreamer 1.22 takes. It has no `accept-certificate`
+  signal, so hook 3 (the wrapped `tls-database`) is expected; the host build
+  exercises that hook with `BP_TLS_HOOK=database`.
 - Whether a default route through the telematics unit exists while the phone
   hotspot is off; if so, a DNS failure shows as `dns`, not `offline`.
-- The MGU video sink and audio output in `bp_player`.
-
-## Next
-
-The AirPlay receiver (UxPlay-based) and its packaging as a Store tool built
-in CI. The app side of the Store install exists: `docs/STORE.md`.
