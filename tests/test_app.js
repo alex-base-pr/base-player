@@ -48,22 +48,22 @@ for (const lang of Object.keys(STRINGS)) {
         ok(drawn.join(' ').includes(wrap(STRINGS[lang]['err_' + name])[0]), `${lang}: ${name} screen shows its reason`);
     }
 }
-t.set('uk');
+t.set('en');
 
 // 3. Line protocol.
 assert.deepStrictEqual(applyLine({}, 'BP error dns'), { phase: 'error', error: 'dns' }); checks++;
 assert.deepStrictEqual(applyLine({}, 'BP error network_failed'), { phase: 'error', error: 'media_failed' }); checks++;
-assert.deepStrictEqual(applyLine({ phase: 'error', error: 'dns' }, 'BP state stopped'), {}); checks++;
-assert.deepStrictEqual(applyLine({ phase: 'video' }, 'BP state stopped'), { phase: 'idle', mode: null }); checks++;
-ok(applyLine({}, 'BP state buffering').buffering === true, 'buffering');
-ok(applyLine({}, 'BP state playing').phase === 'video', 'playing');
+assert.deepStrictEqual(applyLine({ phase: 'error', error: 'dns' }, 'BP phase idle'), {}); checks++;
+assert.deepStrictEqual(applyLine({ phase: 'video' }, 'BP phase idle'), { phase: 'idle', mode: null }); checks++;
+ok(applyLine({}, 'BP phase buffering').buffering === true, 'buffering');
+ok(applyLine({}, 'BP phase video').phase === 'video', 'playing');
 ok(applyLine({}, 'BP tls date_tolerated').certDateTolerated === true, 'tolerated flag');
 ok(applyLine({}, 'garbage') === null && applyLine({}, 'BP ready') === null, 'unknown lines ignored');
 
 // 4. The tolerance is a setting, off by default.
 const setting = appJson.settings.find(s => s.id === 'cert_date_tolerance');
 ok(setting && setting.type === 'bool' && setting.default === false, 'cert_date_tolerance off by default');
-assert.deepStrictEqual(settingsCommands({}), ['certdate 0']); checks++;
-assert.deepStrictEqual(settingsCommands({ cert_date_tolerance: true }), ['certdate 1']); checks++;
+assert.deepStrictEqual(settingsCommands({}), ['certdate off']); checks++;
+assert.deepStrictEqual(settingsCommands({ cert_date_tolerance: true }), ['certdate on']); checks++;
 
 console.log(`test_app: ${checks}/${checks} passed`);

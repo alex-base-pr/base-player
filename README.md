@@ -1,48 +1,65 @@
 # Base Player
 
-Екран і звук з телефона на головний блок BMW **iDrive 7 (MGU)** — AirPlay (і DLNA для Android).
-Власна відкрита розробка. Українською з самого початку, англійська поряд.
+Phone screen and sound on the BMW **iDrive 7 (MGU)** head unit — AirPlay, plus
+DLNA for Android. English by default, Ukrainian as a second language.
 
-> *Phone screen and sound to the BMW iDrive 7 (MGU) head unit — AirPlay, plus DLNA for Android.
-> Our own open build. Ukrainian-first, English alongside.*
+## Why
 
-## Чому окремо, а не форк
+When direct video fails, existing receivers say "could not play". Base Player
+says **why**: the car's clock is wrong and the certificate looks expired, the
+head unit has no internet, DNS is unreachable, the server refused, the format
+is not supported. Where GNSS jamming throws the head unit's clock years ahead,
+an optional setting tolerates the certificate's **dates only** — chain,
+signature and host name are still verified.
 
-Надихалися готовими рішеннями спільноти (зокрема AirPlay-приймачем pllana.io), але код, інтерфейс
-і мова — наші. Мета — чистий iDrive-стиль, українська, і головне: коли **пряме відео не йде, апка
-каже справжню причину** (збитий годинник/сертифікат, немає інтернету, DNS, формат), а не загальне
-«не вдалося». У краях з РЕБ годинник блока стрибає на роки вперед і ламає перевірку сертифікатів —
-Base Player це розрізняє й (за налаштуванням) толерує лише дату, лишаючи ланцюжок, підпис і хост.
+Base Player builds on the work of others: its interface is adapted from
+[pllanaio/bmw-airplay](https://github.com/pllanaio/bmw-airplay) and it targets
+the [idrive7-apps](https://github.com/cauliflowermossgrape/idrive7-apps) kit.
+See [NOTICE.md](NOTICE.md) for what came from where.
 
-## Стан
+## Status
 
-Рання розробка. Зараз готові: інтерфейс (`apps/base_player/view.js`), переклад (`i18n.js`),
-маніфест (`app.json`) і **емулятор** (`emulator/`), що рендерить справжній код апки в браузері —
-дизайн видно, не сідаючи в авто. З нативної частини (`native/`) готові розрізнення причини помилки
-й терпимість до дати сертифіката для прямого відео — перевірено на хості, на блоці ще ні
-(`docs/NATIVE_PLAN.md`). Сам AirPlay-приймач (на базі UxPlay) — далі.
+Early. Done:
 
-## Будова
+- the interface (`apps/base_player/view.js`), strings (`i18n.js`), manifest (`app.json`);
+- a browser **emulator** (`emulator/`) that renders the real app code;
+- from the native side (`native/`): error classification and certificate-date
+  tolerance for direct video, verified on a development host, **not yet on a
+  head unit** (`docs/NATIVE_PLAN.md`).
+
+Not done: the AirPlay receiver itself (UxPlay-based), the app entry point
+(`main.js`), packaging for the MGU Store.
+
+## Layout
 
 ```
 apps/base_player/
-  app.json      маніфест MGU: екран, кнопки, налаштування (мова, відео в русі)
-  view.js       увесь рендер (стиль iDrive); drawHome(c, state, t)
-  i18n.js       рядки uk/en; t(key), t.set('uk'|'en')
-  player_proto.js  рядки `BP …` нативного плеєра -> стан для view.js
-native/         C + GStreamer: причина помилки, політика сертифіката, плеєр прямого відео
-tests/          перевірки зв'язки native <-> UI та живий прогін плеєра
-docs/CANVAS_API.md   контракт API малювання, спільний для апки та емулятора
-emulator/       браузерний емулятор HMI + сцени станів (будується node build.js)
+  app.json         MGU manifest: screen, buttons, settings
+  view.js          all rendering; drawHome(c, state, t)
+  i18n.js          strings en/uk; t(key), t.set('en'|'uk')
+  player_proto.js  event lines of the native player -> state for view.js
+native/            C + GStreamer: error cause, certificate policy, direct-video player
+emulator/          browser emulator of the HMI with scene and language pickers
+tests/             native <-> UI checks and a live run of the player
+docs/              CANVAS_API.md (drawing contract), NATIVE_PLAN.md
 ```
 
-## Емулятор
+## Try it
 
 ```sh
-node emulator/build.js      # збирає emulator/index.html
-# відкрити emulator/index.html у браузері; перемикати сцени й мову
+node emulator/build.js       # writes emulator/index.html; open it in a browser
+node emulator/selfcheck.js   # 40/40
+make -C native test          # classifier, needs only cc
+node tests/test_app.js       # error codes <-> strings <-> error screen
 ```
 
-## Ліцензія
+With GStreamer development files installed:
 
-GPL-3.0-or-later. Приймач AirPlay є похідним від UxPlay (GPL), тож проєкт лишається GPL.
+```sh
+make -C native && make -C native test-gst
+node tests/e2e_player.js     # live, needs internet
+```
+
+## Licence
+
+GPL-3.0-or-later — [LICENSE](LICENSE), [NOTICE.md](NOTICE.md).

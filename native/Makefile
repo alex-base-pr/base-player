@@ -8,7 +8,7 @@ PKG_CONFIG ?= pkg-config
 CFLAGS ?= -O2
 WARN = -std=c99 -Wall -Wextra -Werror
 BUILD = build
-GST_PKGS = gstreamer-1.0 gio-2.0
+GST_PKGS = gstreamer-1.0 gio-2.0 gio-unix-2.0
 
 all: $(BUILD)/bp-player
 

@@ -1,6 +1,7 @@
 'use strict';
-/* Base Player — UI strings. Ukrainian first (default), English second.
- * t(key) returns the string for the current language; t.set('uk'|'en') switches. */
+/* Base Player — UI strings. English is the default and the fallback; Ukrainian
+ * is the second language. t(key) returns the string for the current language;
+ * t.set('en'|'uk') switches. */
 
 const STRINGS = {
     uk: {
@@ -124,13 +125,13 @@ const STRINGS = {
     },
 };
 
-let lang = 'uk';
+let lang = 'en';
 function t(key) {
-    const table = STRINGS[lang] || STRINGS.uk;
-    return table[key] !== undefined ? table[key] : (STRINGS.uk[key] !== undefined ? STRINGS.uk[key] : key);
+    const table = STRINGS[lang] || STRINGS.en;
+    return table[key] !== undefined ? table[key] : (STRINGS.en[key] !== undefined ? STRINGS.en[key] : key);
 }
 t.set = next => { if (STRINGS[next]) lang = next; };
 t.get = () => lang;
-t.languages = () => Object.keys(STRINGS);
+t.languages = () => ['en'].concat(Object.keys(STRINGS).filter(l => l !== 'en'));
 
 module.exports = { t, STRINGS };

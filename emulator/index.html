@@ -84,8 +84,8 @@
     <div class="sep"></div>
     <div class="grp">
       <label>Lang</label>
-      <button id="lang-uk" class="active">UK</button>
-      <button id="lang-en">EN</button>
+      <button id="lang-en" class="active">EN</button>
+      <button id="lang-uk">UK</button>
     </div>
     <div class="sep"></div>
     <div class="grp">
@@ -252,8 +252,9 @@ if (typeof module !== 'undefined' && module.exports) module.exports = { makeCanv
 });
 __def("i18n", function(module, exports, require){
 'use strict';
-/* Base Player — UI strings. Ukrainian first (default), English second.
- * t(key) returns the string for the current language; t.set('uk'|'en') switches. */
+/* Base Player — UI strings. English is the default and the fallback; Ukrainian
+ * is the second language. t(key) returns the string for the current language;
+ * t.set('en'|'uk') switches. */
 
 const STRINGS = {
     uk: {
@@ -377,21 +378,26 @@ const STRINGS = {
     },
 };
 
-let lang = 'uk';
+let lang = 'en';
 function t(key) {
-    const table = STRINGS[lang] || STRINGS.uk;
-    return table[key] !== undefined ? table[key] : (STRINGS.uk[key] !== undefined ? STRINGS.uk[key] : key);
+    const table = STRINGS[lang] || STRINGS.en;
+    return table[key] !== undefined ? table[key] : (STRINGS.en[key] !== undefined ? STRINGS.en[key] : key);
 }
 t.set = next => { if (STRINGS[next]) lang = next; };
 t.get = () => lang;
-t.languages = () => Object.keys(STRINGS);
+t.languages = () => ['en'].concat(Object.keys(STRINGS).filter(l => l !== 'en'));
 
 module.exports = { t, STRINGS };
 
 });
 __def("view", function(module, exports, require){
 'use strict';
-/* Base Player — BMW iDrive-style view. All on-canvas text goes through t().
+/* Base Player — BMW iDrive-style view. GPL-3.0-or-later.
+ * The screen layout, the state model and the text() helper are adapted from
+ * apps/pllana_airplay/view.js of pllanaio/bmw-airplay,
+ * Copyright (C) 2026 Leon Pllana IT-Solutions, GPL-3.0-or-later; changed for
+ * Base Player in 2026 (i18n, error screen, palette, icons). See NOTICE.md.
+ * All on-canvas text goes through t().
  * Pure drawing: given (c, state, t) it renders one frame. No side effects, so
  * the emulator and the car render identically. Reference screen 1920x720. */
 
@@ -567,16 +573,16 @@ __def("fixtures", function(module, exports, require){
 'use strict';
 /* Representative states for the emulator's scene picker. */
 module.exports = [
-  { name: 'Готово (код)', state: { phase: 'idle', pin: '569 156', connected: false } },
-  { name: 'Звук (метадані)', state: { phase: 'audio', connected: true, music: { title: 'Nightcall', artist: 'Kavinsky', album: 'OutRun', playbackState: 'playing', shuffle: 1, repeat: 2, controls: { previous:1, playPause:1, next:1, shuffle:1, repeat:1 } } } },
-  { name: 'Звук (очікування)', state: { phase: 'audio', connected: false, pin: '569 156', music: {} } },
-  { name: 'Повтор екрана', state: { phase: 'mirror', connected: true, mode: 'mirror' } },
-  { name: 'Відео грає', state: { phase: 'video', connected: true, mode: 'hls' } },
-  { name: 'Завантаження', state: { phase: 'loading', buffering: true } },
-  { name: 'Помилка: сертифікат/годинник', state: { phase: 'error', error: 'certificate' } },
-  { name: 'Помилка: нема інтернету', state: { phase: 'error', error: 'offline' } },
-  { name: 'Помилка: формат', state: { phase: 'error', error: 'unsupported' } },
-  { name: 'Нотіс', state: { phase: 'idle', pin: '569 156', notice: 'Приймач ще запускається. Спробуй ще раз.' } },
+  { name: 'Ready (code)', state: { phase: 'idle', pin: '569 156', connected: false } },
+  { name: 'Audio (metadata)', state: { phase: 'audio', connected: true, music: { title: 'Nightcall', artist: 'Kavinsky', album: 'OutRun', playbackState: 'playing', shuffle: 1, repeat: 2, controls: { previous:1, playPause:1, next:1, shuffle:1, repeat:1 } } } },
+  { name: 'Audio (waiting)', state: { phase: 'audio', connected: false, pin: '569 156', music: {} } },
+  { name: 'Screen mirroring', state: { phase: 'mirror', connected: true, mode: 'mirror' } },
+  { name: 'Video playing', state: { phase: 'video', connected: true, mode: 'hls' } },
+  { name: 'Loading', state: { phase: 'loading', buffering: true } },
+  { name: 'Error: certificate/clock', state: { phase: 'error', error: 'certificate' } },
+  { name: 'Error: no internet', state: { phase: 'error', error: 'offline' } },
+  { name: 'Error: format', state: { phase: 'error', error: 'unsupported' } },
+  { name: 'Notice', state: { phase: 'idle', pin: '569 156', notice: 'Receiver still starting. Try again.' } },
 ];
 
 });
@@ -588,13 +594,13 @@ module.exports = [
   var t = i18n.t;
   var drawHome = __require('./view').drawHome;
   var fixtures = __require('./fixtures');
-  var BUTTONS = [{"id":"BTN_START","label":"Підключити","key":"btn_start"},{"id":"BTN_END_VIDEO","label":"Зупинити відео","key":"btn_end_video"},{"id":"BTN_MIRROR","label":"До повтору екрана","key":"btn_mirror"},{"id":"BTN_STOP","label":"Від’єднати","key":"btn_stop"},{"id":"BTN_CLOSE","label":"Закрити","key":"btn_close"}];
+  var BUTTONS = [{"id":"BTN_START","label":"Connect","key":"btn_start"},{"id":"BTN_END_VIDEO","label":"Stop video","key":"btn_end_video"},{"id":"BTN_MIRROR","label":"To mirroring","key":"btn_mirror"},{"id":"BTN_STOP","label":"Disconnect","key":"btn_stop"},{"id":"BTN_CLOSE","label":"Close","key":"btn_close"}];
 
   var canvas = document.getElementById('screen');
   var ctx = canvas.getContext('2d');
   var H = 720;          // canvas body logical height (720 or 520)
   var idx = 0;          // current scene
-  var lang = 'uk';
+  var lang = 'en';
   var curTargets = [];
 
   /* --- layout: crisp scaling, shim draws in 1920xH logical units --- */

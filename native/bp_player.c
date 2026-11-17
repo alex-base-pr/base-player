@@ -1,201 +1,243 @@
-/* Base Player — URL player for direct (non-mirrored) video. GPL-3.0-or-later.
+/* Base Player — direct-video URL player. GPL-3.0-or-later.
  *
- * playbin driven over stdin, one command per line; bounded status lines on
- * stdout for the JS backend (apps/base_player/player_proto.js). Stream URLs
- * are never printed on stdout.
+ * Wraps a playbin. The JS backend writes one command per line to stdin and
+ * reads event lines from stdout (apps/base_player/player_proto.js). The stream
+ * URL never appears on stdout.
  *
- *   uri <url>        load and play
- *   play | pause     transport
- *   certdate <0|1>   tolerate certificate dates only (applies from the next load)
- *   stop             unload
- *   quit             exit
+ * Commands                         Events
+ *   open <http(s) url>               BP ready
+ *   hold                             BP phase loading|buffering|video|paused|idle|ended
+ *   resume                           BP error <code>          (bp_error.h; UI text err_<code>)
+ *   close                            BP tls date_tolerated    (accepted despite its dates)
+ *   certdate on|off                  BP tls date_unavailable  (tolerance on, source has no hook)
+ *   exit
  *
- *   BP ready
- *   BP state loading|buffering|playing|paused|stopped|ended
- *   BP error <code>            see bp_error.h; the UI shows i18n `err_<code>`
- *   BP tls date_tolerated      a certificate was accepted despite its dates
- *   BP tls date_unavailable    tolerance is on but this source offers no hook
- *
- * usage: bp-player [<video-sink description> | none]
+ * Options: --video-sink=<gst-launch description>   default: discard video
+ *          --no-audio                              discard audio
  */
+#include <gio/gio.h>
+#include <gio/gunixinputstream.h>
 #include <gst/gst.h>
-#include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
 
 #include "bp_gst.h"
 
+typedef enum { PHASE_IDLE, PHASE_LOADING, PHASE_BUFFERING, PHASE_VIDEO, PHASE_PAUSED, PHASE_ENDED, PHASE_UNSET } Phase;
+static const char *const PHASE_NAMES[] = { "idle", "loading", "buffering", "video", "paused", "ended" };
+
 typedef struct {
     GMainLoop *loop;
-    GstElement *player;
-    GString *line;
+    GstElement *playbin;
+    GDataInputStream *commands;
     BpTls tls;
-    gboolean loaded, want_playing, buffering, tls_reported;
-    const char *last_state;
-} Player;
+    Phase phase;        /* last phase told to the backend */
+    gboolean active;    /* a URL is loaded */
+    gboolean held;      /* the user asked for pause */
+    gboolean starved;   /* paused by us while the buffer refills */
+    gboolean tls_told;
+} Session;
 
-static void say(const char *format, ...) {
-    va_list args;
-    va_start(args, format);
-    fputs("BP ", stdout);
-    vfprintf(stdout, format, args);
-    fputc('\n', stdout);
+static void emit(const char *kind, const char *value) {
+    if (value) printf("BP %s %s\n", kind, value);
+    else printf("BP %s\n", kind);
     fflush(stdout);
-    va_end(args);
 }
 
-static void report_state(Player *p, const char *state) {
-    if (p->last_state && !strcmp(p->last_state, state)) return;
-    p->last_state = state;
-    say("state %s", state);
+static void enter(Session *s, Phase phase) {
+    if (s->phase == phase) return;
+    s->phase = phase;
+    emit("phase", PHASE_NAMES[phase]);
 }
 
-static void unload(Player *p) {
-    gst_element_set_state(p->player, GST_STATE_NULL);
-    p->loaded = p->want_playing = p->buffering = FALSE;
+static void drop_media(Session *s) {
+    gst_element_set_state(s->playbin, GST_STATE_NULL);
+    s->active = s->held = s->starved = FALSE;
 }
 
-static void load(Player *p, const char *uri) {
-    unload(p);
-    if (!gst_uri_is_valid(uri) || (!g_str_has_prefix(uri, "http://") && !g_str_has_prefix(uri, "https://"))) {
-        say("error media_failed");
-        report_state(p, "stopped");
+static void tell_tls(Session *s) {
+    if (s->tls_told) return;
+    if (g_atomic_int_get(&s->tls.tolerated)) emit("tls", "date_tolerated");
+    else if (g_atomic_int_get(&s->tls.tolerate_date) && g_atomic_int_get(&s->tls.unsupported)) emit("tls", "date_unavailable");
+    else return;
+    s->tls_told = TRUE;
+}
+
+/* --- commands -------------------------------------------------------------- */
+
+static void cmd_open(Session *s, const char *url) {
+    drop_media(s);
+    if (!url || !(g_str_has_prefix(url, "https://") || g_str_has_prefix(url, "http://")) || !gst_uri_is_valid(url)) {
+        emit("error", bp_error_name(BP_ERR_MEDIA_FAILED));
+        enter(s, PHASE_IDLE);
         return;
     }
-    bp_tls_reset(&p->tls);
-    p->tls_reported = FALSE;
-    g_object_set(p->player, "uri", uri, NULL);
-    p->loaded = p->want_playing = TRUE;
-    p->last_state = NULL;
-    report_state(p, "loading");
-    /* A failure here also reaches the bus as GST_MESSAGE_ERROR, with the reason. */
-    gst_element_set_state(p->player, GST_STATE_PLAYING);
+    bp_tls_reset(&s->tls);
+    s->tls_told = FALSE;
+    s->active = TRUE;
+    s->phase = PHASE_UNSET;
+    enter(s, PHASE_LOADING);
+    g_object_set(s->playbin, "uri", url, NULL);
+    gst_element_set_state(s->playbin, GST_STATE_PLAYING); /* failures arrive on the bus, with their cause */
 }
 
-static void command(Player *p, char *text) {
-    char *argument = strchr(text, ' ');
-    if (argument) *argument++ = 0;
-    if (!strcmp(text, "uri") && argument) load(p, g_strstrip(argument));
-    else if (!strcmp(text, "play") && p->loaded) { p->want_playing = TRUE; if (!p->buffering) gst_element_set_state(p->player, GST_STATE_PLAYING); }
-    else if (!strcmp(text, "pause") && p->loaded) { p->want_playing = FALSE; gst_element_set_state(p->player, GST_STATE_PAUSED); }
-    else if (!strcmp(text, "certdate") && argument) bp_tls_set_tolerate_date(&p->tls, argument[0] == '1');
-    else if (!strcmp(text, "stop")) { unload(p); report_state(p, "stopped"); }
-    else if (!strcmp(text, "quit")) g_main_loop_quit(p->loop);
+static void cmd_hold(Session *s, const char *arg) {
+    (void)arg;
+    if (!s->active) return;
+    s->held = TRUE;
+    gst_element_set_state(s->playbin, GST_STATE_PAUSED);
 }
 
-static gboolean on_stdin(GIOChannel *channel, GIOCondition condition, gpointer data) {
-    Player *p = (Player *)data;
-    gchar buffer[512];
-    gsize got = 0;
-    if (condition & (G_IO_HUP | G_IO_ERR | G_IO_NVAL) && !(condition & G_IO_IN)) { g_main_loop_quit(p->loop); return FALSE; }
-    if (g_io_channel_read_chars(channel, buffer, sizeof buffer, &got, NULL) != G_IO_STATUS_NORMAL || !got) {
-        g_main_loop_quit(p->loop);
-        return FALSE;
-    }
-    for (gsize i = 0; i < got; i++) {
-        if (buffer[i] == '\n') {
-            command(p, p->line->str);
-            g_string_truncate(p->line, 0);
-        } else if (buffer[i] != '\r') {
-            if (p->line->len < 4096) g_string_append_c(p->line, buffer[i]);
-        }
-    }
-    return TRUE;
+static void cmd_resume(Session *s, const char *arg) {
+    (void)arg;
+    if (!s->active) return;
+    s->held = FALSE;
+    if (!s->starved) gst_element_set_state(s->playbin, GST_STATE_PLAYING);
 }
 
-static void report_tls(Player *p) {
-    if (p->tls_reported) return;
-    if (g_atomic_int_get(&p->tls.tolerated)) { say("tls date_tolerated"); p->tls_reported = TRUE; }
-    else if (g_atomic_int_get(&p->tls.tolerate_date) && g_atomic_int_get(&p->tls.unsupported)) { say("tls date_unavailable"); p->tls_reported = TRUE; }
+static void cmd_close(Session *s, const char *arg) {
+    (void)arg;
+    drop_media(s);
+    enter(s, PHASE_IDLE);
 }
 
-static gboolean on_bus(GstBus *bus, GstMessage *message, gpointer data) {
+static void cmd_certdate(Session *s, const char *arg) {
+    bp_tls_set_tolerate_date(&s->tls, arg && !strcmp(arg, "on"));
+}
+
+static void cmd_exit(Session *s, const char *arg) {
+    (void)arg;
+    g_main_loop_quit(s->loop);
+}
+
+static const struct { const char *name; void (*run)(Session *, const char *); } COMMANDS[] = {
+    { "open", cmd_open }, { "hold", cmd_hold }, { "resume", cmd_resume },
+    { "close", cmd_close }, { "certdate", cmd_certdate }, { "exit", cmd_exit },
+};
+
+static void next_command(Session *s);
+
+static void on_command(GObject *stream, GAsyncResult *result, gpointer data) {
+    Session *s = (Session *)data;
+    gchar *line = g_data_input_stream_read_line_finish_utf8(G_DATA_INPUT_STREAM(stream), result, NULL, NULL);
+    if (!line) { g_main_loop_quit(s->loop); return; } /* the backend went away */
+    gchar **parts = g_strsplit(g_strstrip(line), " ", 2);
+    for (gsize i = 0; parts[0] && i < G_N_ELEMENTS(COMMANDS); i++)
+        if (!strcmp(parts[0], COMMANDS[i].name)) { COMMANDS[i].run(s, parts[1]); break; }
+    g_strfreev(parts);
+    g_free(line);
+    next_command(s);
+}
+
+static void next_command(Session *s) {
+    g_data_input_stream_read_line_async(s->commands, G_PRIORITY_DEFAULT, NULL, on_command, s);
+}
+
+/* --- bus ------------------------------------------------------------------- */
+
+static void on_error(GstBus *bus, GstMessage *message, gpointer data) {
+    Session *s = (Session *)data;
+    gchar *url = NULL;
     (void)bus;
-    Player *p = (Player *)data;
-    switch (GST_MESSAGE_TYPE(message)) {
-    case GST_MESSAGE_EOS:
-        if (p->loaded) { unload(p); report_state(p, "ended"); }
-        break;
-    case GST_MESSAGE_ERROR:
-        /* The first error carries the cause; what follows it ("Internal data
-           stream error") is fallout, so nothing is reported once unloaded. */
-        if (!p->loaded) break;
-        report_tls(p);
-        {
-            gchar *uri = NULL;
-            g_object_get(p->player, "current-uri", &uri, NULL);
-            if (!uri) g_object_get(p->player, "uri", &uri, NULL);
-            say("error %s", bp_error_name(bp_gst_classify(message, &p->tls, uri)));
-            g_free(uri);
-        }
-        unload(p);
-        report_state(p, "stopped");
-        break;
-    case GST_MESSAGE_BUFFERING: {
-        gint percent = 0;
-        if (!p->loaded) break;
-        gst_message_parse_buffering(message, &percent);
-        if (percent < 100) {
-            if (!p->buffering) { p->buffering = TRUE; gst_element_set_state(p->player, GST_STATE_PAUSED); }
-            report_state(p, "buffering");
-        } else if (p->buffering) {
-            p->buffering = FALSE;
-            if (p->want_playing) gst_element_set_state(p->player, GST_STATE_PLAYING);
-        }
-        break;
+    /* Only the first error names the cause; the rest is fallout of the teardown. */
+    if (!s->active) return;
+    g_object_get(s->playbin, "current-uri", &url, NULL);
+    if (!url) g_object_get(s->playbin, "uri", &url, NULL);
+    tell_tls(s);
+    emit("error", bp_error_name(bp_gst_classify(message, &s->tls, url)));
+    g_free(url);
+    drop_media(s);
+    enter(s, PHASE_IDLE);
+}
+
+static void on_eos(GstBus *bus, GstMessage *message, gpointer data) {
+    Session *s = (Session *)data;
+    (void)bus; (void)message;
+    if (!s->active) return;
+    drop_media(s);
+    enter(s, PHASE_ENDED);
+}
+
+static void on_buffering(GstBus *bus, GstMessage *message, gpointer data) {
+    Session *s = (Session *)data;
+    gint percent = 100;
+    (void)bus;
+    if (!s->active) return;
+    gst_message_parse_buffering(message, &percent);
+    if (percent < 100 && !s->starved) {
+        s->starved = TRUE;
+        gst_element_set_state(s->playbin, GST_STATE_PAUSED);
+        enter(s, PHASE_BUFFERING);
+    } else if (percent >= 100 && s->starved) {
+        s->starved = FALSE;
+        if (!s->held) gst_element_set_state(s->playbin, GST_STATE_PLAYING);
     }
-    case GST_MESSAGE_STATE_CHANGED:
-        if (p->loaded && !p->buffering && GST_MESSAGE_SRC(message) == GST_OBJECT(p->player)) {
-            GstState now;
-            gst_message_parse_state_changed(message, NULL, &now, NULL);
-            report_tls(p);
-            if (now == GST_STATE_PLAYING) report_state(p, "playing");
-            else if (now == GST_STATE_PAUSED && !p->want_playing) report_state(p, "paused");
-        }
-        break;
-    default:
-        break;
-    }
-    return TRUE;
+}
+
+static void on_state_changed(GstBus *bus, GstMessage *message, gpointer data) {
+    Session *s = (Session *)data;
+    GstState state = GST_STATE_NULL;
+    (void)bus;
+    if (!s->active || s->starved || GST_MESSAGE_SRC(message) != GST_OBJECT(s->playbin)) return;
+    gst_message_parse_state_changed(message, NULL, &state, NULL);
+    tell_tls(s);
+    if (state == GST_STATE_PLAYING) enter(s, PHASE_VIDEO);
+    else if (state == GST_STATE_PAUSED && s->held) enter(s, PHASE_PAUSED);
+}
+
+/* --- setup ----------------------------------------------------------------- */
+
+static GstElement *make_sink(const char *description) {
+    GstElement *sink = description ? gst_parse_bin_from_description(description, TRUE, NULL) : gst_element_factory_make("fakesink", NULL);
+    return sink;
 }
 
 int main(int argc, char **argv) {
-    Player p;
-    gst_init(&argc, &argv);
-    memset(&p, 0, sizeof p);
-    p.line = g_string_new(NULL);
-    p.loop = g_main_loop_new(NULL, FALSE);
-    p.player = gst_element_factory_make("playbin", "bp-player");
-    if (!p.player) { say("error media_failed"); return 69; }
+    gchar *video_sink = NULL;
+    gboolean no_audio = FALSE;
+    GOptionEntry options[] = {
+        { "video-sink", 0, 0, G_OPTION_ARG_STRING, &video_sink, "Video sink (gst-launch syntax); default discards video", "DESC" },
+        { "no-audio", 0, 0, G_OPTION_ARG_NONE, &no_audio, "Discard audio", NULL },
+        { NULL, 0, 0, G_OPTION_ARG_NONE, NULL, NULL, NULL },
+    };
+    GOptionContext *parser = g_option_context_new("- Base Player direct-video player");
+    g_option_context_add_main_entries(parser, options, NULL);
+    g_option_context_add_group(parser, gst_init_get_option_group());
+    if (!g_option_context_parse(parser, &argc, &argv, NULL)) return 64;
+    g_option_context_free(parser);
 
-    const char *video = argc > 1 ? argv[1] : "none";
-    if (strcmp(video, "none")) {
-        GError *error = NULL;
-        GstElement *sink = gst_parse_bin_from_description(video, TRUE, &error);
-        if (error || !sink) { g_clear_error(&error); say("error media_failed"); return 69; }
-        g_object_set(p.player, "video-sink", sink, NULL);
-    } else {
-        g_object_set(p.player, "video-sink", gst_element_factory_make("fakesink", NULL), NULL);
-    }
-    if (g_getenv("BP_NO_AUDIO")) g_object_set(p.player, "audio-sink", gst_element_factory_make("fakesink", NULL), NULL);
+    Session s;
+    memset(&s, 0, sizeof s);
+    s.phase = PHASE_UNSET;
+    s.playbin = gst_element_factory_make("playbin", NULL);
+    GstElement *video = make_sink(video_sink);
+    if (!s.playbin || !video) { emit("error", bp_error_name(BP_ERR_MEDIA_FAILED)); return 69; }
+    g_object_set(s.playbin, "video-sink", video, NULL);
+    if (no_audio) g_object_set(s.playbin, "audio-sink", gst_element_factory_make("fakesink", NULL), NULL);
+    bp_tls_attach(&s.tls, s.playbin);
 
-    bp_tls_attach(&p.tls, p.player);
+    GstBus *bus = gst_element_get_bus(s.playbin);
+    gst_bus_add_signal_watch(bus);
+    g_signal_connect(bus, "message::error", G_CALLBACK(on_error), &s);
+    g_signal_connect(bus, "message::eos", G_CALLBACK(on_eos), &s);
+    g_signal_connect(bus, "message::buffering", G_CALLBACK(on_buffering), &s);
+    g_signal_connect(bus, "message::state-changed", G_CALLBACK(on_state_changed), &s);
 
-    GstBus *bus = gst_element_get_bus(p.player);
-    gst_bus_add_watch(bus, on_bus, &p);
+    GInputStream *input = g_unix_input_stream_new(0, FALSE);
+    s.commands = g_data_input_stream_new(input);
+    g_object_unref(input);
+    s.loop = g_main_loop_new(NULL, FALSE);
+    next_command(&s);
+
+    emit("ready", NULL);
+    g_main_loop_run(s.loop);
+
+    gst_element_set_state(s.playbin, GST_STATE_NULL);
+    gst_bus_remove_signal_watch(bus);
     gst_object_unref(bus);
-    GIOChannel *input = g_io_channel_unix_new(0);
-    g_io_channel_set_encoding(input, NULL, NULL);
-    g_io_channel_set_buffered(input, FALSE);
-    g_io_add_watch(input, (GIOCondition)(G_IO_IN | G_IO_HUP | G_IO_ERR | G_IO_NVAL), on_stdin, &p);
-
-    say("ready");
-    g_main_loop_run(p.loop);
-
-    gst_element_set_state(p.player, GST_STATE_NULL);
-    gst_object_unref(p.player);
-    g_io_channel_unref(input);
-    g_string_free(p.line, TRUE);
-    g_main_loop_unref(p.loop);
+    gst_object_unref(s.playbin);
+    g_object_unref(s.commands);
+    g_main_loop_unref(s.loop);
+    g_free(video_sink);
     return 0;
 }

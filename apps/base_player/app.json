@@ -1,7 +1,7 @@
 {
   "id": "base_player",
   "title": "Base Player",
-  "description": "Base Player — екран і звук з телефона на iDrive 7 (AirPlay/DLNA). Власна розробка, GPL-3.0.",
+  "description": "Base Player — phone screen and sound on iDrive 7 (AirPlay/DLNA). GPL-3.0-or-later.",
   "version": "0.1.0",
   "vendor": "base",
   "loggingId": "BPL1",
@@ -10,12 +10,12 @@
   "iconGlyph": "WEB",
   "screens": [{
     "name": "MAIN", "kind": "canvas", "title": "Base Player", "bar": true, "borderless": true,
-    "buttons": [["BTN_START", "Підключити"], ["BTN_END_VIDEO", "Зупинити відео"], ["BTN_MIRROR", "До повтору екрана"], ["BTN_STOP", "Від’єднати"], ["BTN_CLOSE", "Закрити"]]
+    "buttons": [["BTN_START", "Connect"], ["BTN_END_VIDEO", "Stop video"], ["BTN_MIRROR", "To mirroring"], ["BTN_STOP", "Disconnect"], ["BTN_CLOSE", "Close"]]
   }],
   "settings": [
-    { "id": "language", "title": "Мова / Language", "type": "enum", "values": ["uk", "en"], "default": "uk" },
-    { "id": "video_while_driving", "title": "Відео під час руху (приват. територія)", "type": "bool", "default": false },
-    { "id": "cert_date_tolerance", "title": "Терпимість до дати сертифіката (збитий годинник)", "type": "bool", "default": false }
+    { "id": "language", "title": "Language", "type": "enum", "values": ["en", "uk"], "default": "en" },
+    { "id": "video_while_driving", "title": "Video while driving (private ground)", "type": "bool", "default": false },
+    { "id": "cert_date_tolerance", "title": "Tolerate certificate dates (wrong clock)", "type": "bool", "default": false }
   ],
   "config": {}
 }

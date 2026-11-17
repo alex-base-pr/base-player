@@ -1,5 +1,10 @@
 'use strict';
-/* Base Player — BMW iDrive-style view. All on-canvas text goes through t().
+/* Base Player — BMW iDrive-style view. GPL-3.0-or-later.
+ * The screen layout, the state model and the text() helper are adapted from
+ * apps/pllana_airplay/view.js of pllanaio/bmw-airplay,
+ * Copyright (C) 2026 Leon Pllana IT-Solutions, GPL-3.0-or-later; changed for
+ * Base Player in 2026 (i18n, error screen, palette, icons). See NOTICE.md.
+ * All on-canvas text goes through t().
  * Pure drawing: given (c, state, t) it renders one frame. No side effects, so
  * the emulator and the car render identically. Reference screen 1920x720. */
 

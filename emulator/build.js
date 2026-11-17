@@ -129,8 +129,8 @@ const html = `<!DOCTYPE html>
     <div class="sep"></div>
     <div class="grp">
       <label>Lang</label>
-      <button id="lang-uk" class="active">UK</button>
-      <button id="lang-en">EN</button>
+      <button id="lang-en" class="active">EN</button>
+      <button id="lang-uk">UK</button>
     </div>
     <div class="sep"></div>
     <div class="grp">
@@ -168,7 +168,7 @@ ${registry}
   var ctx = canvas.getContext('2d');
   var H = 720;          // canvas body logical height (720 or 520)
   var idx = 0;          // current scene
-  var lang = 'uk';
+  var lang = 'en';
   var curTargets = [];
 
   /* --- layout: crisp scaling, shim draws in 1920xH logical units --- */

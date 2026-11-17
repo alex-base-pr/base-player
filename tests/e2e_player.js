@@ -3,7 +3,7 @@
  * internet and a host GStreamer build). Not part of `npm test`-style offline
  * checks: run by hand with `node tests/e2e_player.js`.
  *
- * Each case sends `certdate`, `uri`, and expects one outcome line. */
+ * Each case sends `certdate`, `open`, and expects one outcome line. */
 
 const { spawn } = require('child_process');
 const path = require('path');
@@ -13,7 +13,7 @@ const MEDIA = 'https://gstreamer.freedesktop.org/data/media/small/sintel.mkv'; /
 
 const CASES = [
     // [name, url, tolerate dates, expected line, hook (optional)]
-    ['valid https plays', MEDIA, 0, 'state playing'],
+    ['valid https plays', MEDIA, 0, 'phase video'],
     ['expired cert, strict', 'https://expired.badssl.com/', 0, 'error certificate'],
     ['wrong host, strict', 'https://wrong.host.badssl.com/', 0, 'error certificate_untrusted'],
     ['self-signed, strict', 'https://self-signed.badssl.com/', 0, 'error certificate_untrusted'],
@@ -24,13 +24,13 @@ const CASES = [
     ['wrong host, tolerant', 'https://wrong.host.badssl.com/', 1, 'error certificate_untrusted'],
     ['self-signed, tolerant', 'https://self-signed.badssl.com/', 1, 'error certificate_untrusted'],
     ['untrusted root, tolerant', 'https://untrusted-root.badssl.com/', 1, 'error certificate_untrusted'],
-    ['valid https plays, tolerant', MEDIA, 1, 'state playing'],
+    ['valid https plays, tolerant', MEDIA, 1, 'phase video'],
     // Same policy through the wrapped tls-database (the libsoup 2 path).
     ['db hook: expired, strict', 'https://expired.badssl.com/', 0, 'error certificate', 'database'],
     ['db hook: expired, tolerant', 'https://expired.badssl.com/', 1, 'tls date_tolerated', 'database'],
     ['db hook: wrong host, tolerant', 'https://wrong.host.badssl.com/', 1, 'error certificate_untrusted', 'database'],
     ['db hook: untrusted root, tolerant', 'https://untrusted-root.badssl.com/', 1, 'error certificate_untrusted', 'database'],
-    ['db hook: valid plays', MEDIA, 0, 'state playing', 'database'],
+    ['db hook: valid plays', MEDIA, 0, 'phase video', 'database'],
     ['dns', 'https://no-such-host.base-player.invalid/a.mp4', 0, 'error dns'],
     ['connection refused', 'http://127.0.0.1:9/a.mp4', 0, 'error offline'],
     ['404', 'https://gstreamer.freedesktop.org/data/media/small/does-not-exist.mkv', 0, 'error not_found'],
@@ -40,16 +40,16 @@ const CASES = [
 function run(c) {
     const [name, url, tolerate, want, hook] = c;
     return new Promise(resolve => {
-        const env = Object.assign({}, process.env, { BP_NO_AUDIO: '1' });
+        const env = Object.assign({}, process.env);
         if (hook) env.BP_TLS_HOOK = hook;
-        const child = spawn(PLAYER, ['none'], { env, stdio: ['pipe', 'pipe', process.env.BP_DEBUG ? 'inherit' : 'ignore'] });
+        const child = spawn(PLAYER, ['--no-audio'], { env, stdio: ['pipe', 'pipe', process.env.BP_DEBUG ? 'inherit' : 'ignore'] });
         const lines = [];
         let done = false, buffer = '';
         const finish = verdict => {
             if (done) return;
             done = true;
             clearTimeout(timer);
-            child.stdin.end('quit\n');
+            child.stdin.end('exit\n');
             child.kill();
             resolve({ name, want, lines, ok: verdict });
         };
@@ -61,12 +61,12 @@ function run(c) {
                 const line = buffer.slice(0, at).replace(/^BP /, '');
                 buffer = buffer.slice(at + 1);
                 lines.push(line);
-                if (line === 'ready') child.stdin.write(`certdate ${tolerate}\nuri ${url}\n`);
+                if (line === 'ready') child.stdin.write(`certdate ${tolerate ? 'on' : 'off'}\nopen ${url}\n`);
                 else if (line === want) {
                     // "tolerated" must not be followed by a certificate error.
                     if (want === 'tls date_tolerated') continue;
                     finish(true);
-                } else if (line.startsWith('error ') || line === 'state playing' || line === 'state ended') {
+                } else if (line.startsWith('error ') || line === 'phase video' || line === 'phase ended') {
                     finish(want === 'tls date_tolerated' && lines.includes(want) && !line.startsWith('error certificate'));
                 }
             }

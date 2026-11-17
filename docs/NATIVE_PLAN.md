@@ -1,63 +1,88 @@
-# Нативна частина — план (приймач + причина помилки)
+# Native side — plan and state
 
-Мета двох найперших виправлень, яких бракує існуючим рішенням:
+Two fixes come first, because existing solutions lack them.
 
-## 1. Говорити справжню причину
-У типовій реалізації playbin/GStreamer будь-який мережевий збій зводиться до одного коду
-(«network failed»). Base Player розрізняє на рівні `GST_MESSAGE_ERROR`:
-- `GST_RESOURCE_ERROR_NOT_AUTHORIZED` -> `forbidden`
-- `GST_RESOURCE_ERROR_NOT_FOUND`      -> `not_found`
-- повідомлення містить "certificate"/"expired"/"not valid"/"TLS" -> `certificate`
-- повідомлення містить "resolve"/"name"/"DNS"                    -> `dns`
-- інакше, і сокет не відкрився                                   -> `offline`
-- `GST_STREAM_ERROR_*TYPE*/WRONG_TYPE/CODEC_NOT_FOUND`           -> `unsupported`/`decode`
-Код передається у JS (`error <code>`), а `i18n.js` показує людський текст (ключі `err_*`).
+## 1. Say the real cause
 
-## 2. Терпимість до дати сертифіката (опційно, як у mgu-updater)
-Коли годинник блока збитий (РЕБ), сертифікат виглядає простроченим. За увімкненим налаштуванням
-знімати в перевірці TLS лише прапорці дати (`G_TLS_CERTIFICATE_EXPIRED`,
-`G_TLS_CERTIFICATE_NOT_ACTIVATED`) — на джерелах через `source-setup` (`tls-validation-flags`).
-Ланцюжок до кореня, підпис і відповідність хоста перевіряються як завжди. За замовчуванням вимкнено.
+A typical playbin/GStreamer player reduces every network failure to one code.
+Base Player tells them apart and sends `error <code>` to the UI, which shows
+the text `err_<code>` from `i18n.js`:
 
-## Стан реалізації (native/)
+| Code | Meaning |
+| --- | --- |
+| `certificate` | certificate refused for its dates — on this head unit, the clock |
+| `certificate_untrusted` | certificate refused for chain, host name or signature |
+| `offline` | no route, connection refused or timed out |
+| `dns` | the name does not resolve although a route exists |
+| `forbidden`, `not_found` | HTTP 401/403/407, 404/410 |
+| `unsupported`, `decode` | container/codec not handled, decoding failed |
+| `media_failed` | nothing more specific is known |
 
-Зроблено й перевірено на хості (macOS, GStreamer 1.28, libsoup 3, gnutls):
+## 2. Tolerate certificate dates only (optional)
 
-- `bp_error.c` — чистий C без GLib: `BpErrorInput` -> код. Порядок: точні прапорці сертифіката ->
-  тип потоку -> HTTP-статус -> власна проба хоста -> текст помилки. `make test`.
-- `bp_gst.c` — обв'язка GStreamer: політика сертифіката, розбір `GST_MESSAGE_ERROR`, проба хоста.
-- `bp_player.c` — плеєр прямого відео: команди на stdin, рядки `BP …` на stdout
-  (`apps/base_player/player_proto.js` перетворює їх на стан для `view.js`).
-- Коди: `certificate` (дата), `certificate_untrusted` (ланцюг/хост/підпис — новий), `offline`, `dns`,
-  `forbidden`, `not_found`, `unsupported`, `decode`, `media_failed`.
+When the head unit's clock is wrong, valid certificates look expired. With the
+setting `cert_date_tolerance` on, only `G_TLS_CERTIFICATE_EXPIRED` and
+`G_TLS_CERTIFICATE_NOT_ACTIVATED` are forgiven. Chain, signature and host name
+are verified as always. Off by default.
 
-Що з'ясувалося по дорозі й чому зроблено саме так:
+## What is implemented (`native/`)
 
-- **libsoup 3 взагалі не віддає причину на шину.** DNS, відмова з'єднання й TLS приходять однаково:
-  STREAM/FAILED «Internal data stream error» (GError лише логується). Тому, коли повідомлення не
-  називає причини, `bp_net_probe()` сам робить resolve -> connect -> TLS-handshake до хоста URL
-  (до 5 с, нічого не приймає) і каже, на якому кроці впало. Від версії libsoup не залежить.
-- **libsoup 2** кладе в `http-status-code` псевдостатуси (2 — не резолвиться, 4 — немає з'єднання,
-  6 — TLS) і резолв-помилку віддає як RESOURCE/NOT_FOUND — це враховано.
-- **«DNS» чи «немає інтернету»:** без маршруту резолвер теж падає. `bp_route_probe()` питає ядро про
-  маршрут (UDP `connect()`, жодного пакета); без маршруту помилка DNS показується як `offline`.
-- **У `souphttpsrc` немає властивості `tls-validation-flags`** (вона є, напр., у `rtspsrc`). Тому
-  `bp_tls_attach()` на кожному джерелі бере перший наявний гак: (1) `tls-validation-flags` — як у плані;
-  (2) сигнал `accept-certificate` (libsoup 3, GStreamer >= 1.24); (3) `tls-database`, загорнута в
-  делегуючу базу, що після повної перевірки знімає лише вердикт щодо дат (працює і з libsoup 2).
-  `ssl-strict` не вимикається ніколи. Джерела ловляться через `source-setup` і `deep-element-added`
-  (HLS-демуксер створює власні HTTP-джерела, яких `source-setup` не бачить).
-- Гаки 2 і 3 дають точні прапорці, тож `certificate` і `certificate_untrusted` розрізняються напевно.
-  Гак 1 прапорців не дає — тоді причину добирає проба хоста.
+- `bp_error.c` — plain C, no GLib: `BpErrorInput` -> code. Order: exact
+  certificate flags, stream kind, HTTP status, own probe of the host, error text.
+- `bp_gst.c` — GStreamer glue: certificate policy, reading `GST_MESSAGE_ERROR`,
+  the host probe.
+- `bp_player.c` — direct-video player: commands on stdin, `BP …` event lines on
+  stdout; `apps/base_player/player_proto.js` turns them into state for `view.js`.
 
-Перевірки: `make -C native test` (класифікатор), `make -C native test-gst` (гак 1 на `rtspsrc`),
-`node tests/test_app.js` (коди <-> i18n <-> екран помилки), `node tests/e2e_player.js` (наживо:
-badssl.com expired / wrong.host / self-signed / untrusted-root, неіснуючий хост, 404; обидва гаки).
+## Findings that shaped it
 
-Не перевірено (потрібна машина): збірка крос-тулчейном під MGU; який гак реально є у версії
-GStreamer на блоці; чи є маршрут за замовчуванням через телематику, коли точка доступу вимкнена
-(тоді DNS-збій покажеться як `dns`, а не `offline`); відеосинк і звук MGU в `bp_player`.
+- **libsoup 3 puts no cause on the bus.** DNS failure, refused connection and
+  TLS failure all arrive as STREAM/FAILED "Internal data stream error"; the
+  GError is only logged. So when a message names no cause, `bp_net_probe()`
+  resolves, connects and does a TLS handshake to the URL's host itself (up to
+  5 s, accepting nothing) and reports the step that failed. This does not
+  depend on the libsoup version.
+- **libsoup 2** puts transport pseudo-statuses into `http-status-code`
+  (2 cannot resolve, 4 cannot connect, 6 TLS) and reports an unresolvable host
+  as RESOURCE/NOT_FOUND. Both are handled.
+- **"DNS" or "no internet"?** Without a route the resolver fails too.
+  `bp_route_probe()` asks the kernel for a route (UDP `connect()`, no packet
+  sent); without one, a DNS failure is shown as `offline`.
+- **`souphttpsrc` has no `tls-validation-flags` property** (`rtspsrc` has). So
+  `bp_tls_attach()` uses, per source, the first hook that exists:
+  1. the `tls-validation-flags` property;
+  2. the `accept-certificate` signal (libsoup 3, GStreamer >= 1.24);
+  3. the `tls-database` property, wrapped in a delegating database that runs
+     the full verification and then only changes the verdict on dates (works
+     with libsoup 2 as well).
 
-## Застереження
-Нативний код збирається під MGU (крос-тулчейн) і перевіряється на машині. У цьому репозиторії
-спершу дозрівають інтерфейс і логіка (їх видно в емуляторі); приймач додаємо інкрементально.
+  `ssl-strict` is never turned off. Sources are caught through `source-setup`
+  and `deep-element-added`, because an HLS demuxer creates its own HTTP sources
+  that `source-setup` never sees.
+- Hooks 2 and 3 give exact flags, so `certificate` and `certificate_untrusted`
+  are told apart reliably. Hook 1 gives none; the host probe supplies them.
+
+## Checks
+
+- `make -C native test` — classifier and policy (plain cc).
+- `make -C native test-gst` — hook 1 on `rtspsrc`.
+- `node tests/test_app.js` — codes <-> strings <-> error screen.
+- `node tests/e2e_player.js` — live: badssl.com expired / wrong.host /
+  self-signed / untrusted-root, a host that does not exist, a refused
+  connection, a 404; hooks 2 and 3.
+
+Host used: macOS, GStreamer 1.28, libsoup 3, GnuTLS.
+
+## Not verified — needs the car
+
+- Building for the MGU (x86-64 Linux with its own GStreamer runtime).
+- Which of the three hooks the head unit's GStreamer offers.
+- Whether a default route through the telematics unit exists while the phone
+  hotspot is off; if so, a DNS failure shows as `dns`, not `offline`.
+- The MGU video sink and audio output in `bp_player`.
+
+## Next
+
+The AirPlay receiver (UxPlay-based), the app entry point `main.js`, and
+packaging for the MGU Store (`mgu-repo.json`, a build script, a runtime tool
+built in CI).

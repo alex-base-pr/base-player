@@ -6,7 +6,7 @@
 const { STRINGS } = require('./i18n.js');
 
 // Every code the UI has a text for; anything else shows as media_failed.
-const ERRORS = Object.keys(STRINGS.uk).filter(k => /^err_/.test(k) && !/^err_(title|tap_retry|try_mirror)$/.test(k)).map(k => k.slice(4));
+const ERRORS = Object.keys(STRINGS.en).filter(k => /^err_/.test(k) && !/^err_(title|tap_retry|try_mirror)$/.test(k)).map(k => k.slice(4));
 
 function applyLine(state, line) {
     const m = /^BP (\S+)(?: (\S+))?$/.exec(String(line).trim());
@@ -18,20 +18,20 @@ function applyLine(state, line) {
         if (value === 'date_unavailable') return { certDateUnavailable: true };
         return null;
     }
-    if (what !== 'state') return null;
+    if (what !== 'phase') return null;
     switch (value) {
         case 'loading': return { phase: 'loading', buffering: false, error: null, certDateTolerated: false, certDateUnavailable: false };
         case 'buffering': return { phase: 'loading', buffering: true };
-        case 'playing': case 'paused': return { phase: 'video', mode: 'hls' };
-        // The player reports `stopped` right after an error; the reason must stay on screen.
-        case 'stopped': case 'ended': return (state && state.phase === 'error') ? {} : { phase: 'idle', mode: null };
+        case 'video': case 'paused': return { phase: 'video', mode: 'hls' };
+        // The player goes idle right after an error; the reason must stay on screen.
+        case 'idle': case 'ended': return (state && state.phase === 'error') ? {} : { phase: 'idle', mode: null };
         default: return null;
     }
 }
 
-/* Commands to send before each `uri`, from the app's settings. */
+/* Commands to send before each `open`, from the app's settings. */
 function settingsCommands(settings) {
-    return ['certdate ' + (settings && settings.cert_date_tolerance ? 1 : 0)];
+    return ['certdate ' + (settings && settings.cert_date_tolerance ? 'on' : 'off')];
 }
 
 module.exports = { applyLine, settingsCommands, ERRORS };
