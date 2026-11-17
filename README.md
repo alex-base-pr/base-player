@@ -25,10 +25,13 @@ Early. Done:
 - a browser **emulator** (`emulator/`) that renders the real app code;
 - from the native side (`native/`): error classification and certificate-date
   tolerance for direct video, verified on a development host, **not yet on a
-  head unit** (`docs/NATIVE_PLAN.md`).
+  head unit** (`docs/NATIVE_PLAN.md`);
+- an **interface-only** build that installs through the MGU Store
+  (`docs/STORE.md`): built on a desktop in preview mode, **not yet installed
+  on a head unit**.
 
-Not done: the AirPlay receiver itself (UxPlay-based), the app entry point
-(`main.js`), packaging for the MGU Store.
+Not done: the AirPlay receiver itself (UxPlay-based) and its packaging as a
+Store tool.
 
 ## Layout
 
@@ -38,10 +41,14 @@ apps/base_player/
   view.js          all rendering; drawHome(c, state, t)
   i18n.js          strings en/uk; t(key), t.set('en'|'uk')
   player_proto.js  event lines of the native player -> state for view.js
+  main.js          entry point for the MGU app kit
+  kit_canvas.js    maps the view's drawing contract onto the kit's canvas
+mgu-repo.json      tells the MGU Store how to build the app
+tools/             build_store.py: the build the Store runs on the head unit
 native/            C + GStreamer: error cause, certificate policy, direct-video player
 emulator/          browser emulator of the HMI with scene and language pickers
 tests/             native <-> UI checks and a live run of the player
-docs/              CANVAS_API.md (drawing contract), NATIVE_PLAN.md
+docs/              CANVAS_API.md (drawing contract), NATIVE_PLAN.md, STORE.md
 ```
 
 ## Try it

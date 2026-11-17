@@ -83,6 +83,5 @@ Host used: macOS, GStreamer 1.28, libsoup 3, GnuTLS.
 
 ## Next
 
-The AirPlay receiver (UxPlay-based), the app entry point `main.js`, and
-packaging for the MGU Store (`mgu-repo.json`, a build script, a runtime tool
-built in CI).
+The AirPlay receiver (UxPlay-based) and its packaging as a Store tool built
+in CI. The app side of the Store install exists: `docs/STORE.md`.

@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "apps": {
+    "path": "apps/*",
+    "manifest": "app.json",
+    "mguHmi": ["ID7"],
+    "build": {
+      "python": "tools/build_store.py",
+      "args": ["--id", "{id}", "--version", "{version}", "--dir", "{dir}"],
+      "sdk": "oap-sdk",
+      "network": true
+    }
+  }
+}

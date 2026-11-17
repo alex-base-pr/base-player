@@ -1,7 +1,8 @@
 # MGU canvas drawing API (the contract the app and the emulator share)
 
 The app's `drawHome(c, state, t)` receives a canvas handle `c` with these methods
-(the real MGU kit, `cauliflowermossgrape/idrive7-apps` kit/runtime, provides them;
+(on the head unit `apps/base_player/kit_canvas.js` implements them over the MGU kit's
+canvas, `cauliflowermossgrape/idrive7-apps` kit/runtime, whose own signatures differ;
 the emulator implements the same surface over an HTML5 canvas):
 
 - c.w, c.h                               logical screen size (default 1920x720; short screens shrink)

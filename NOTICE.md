@@ -19,7 +19,8 @@ from it and remain under that licence:
 | `apps/base_player/i18n.js` | strings in `apps/pllana_airplay/*.js` | Several status texts are translations of the German originals. The error texts are new. |
 
 Written for Base Player and not derived from that project: everything in
-`native/`, `apps/base_player/player_proto.js`, `emulator/`, `tests/`. The idea
+`native/`, `apps/base_player/player_proto.js`, `main.js`, `kit_canvas.js`,
+`tools/`, `emulator/`, `tests/`. The idea
 of a line-based player driven over stdin, and the observation that every
 network failure there ends up as one `network_failed` code, come from reading
 its `airplay/native/mgu_media_player.c`; no code was taken from it.
@@ -30,7 +31,8 @@ No name, logo or branding of that project is used.
 
 <https://github.com/cauliflowermossgrape/idrive7-apps> — MIT. The app targets
 that kit's runtime and canvas API (`docs/CANVAS_API.md` describes the part it
-uses). No kit code is included in this repository.
+uses). No kit code is included in this repository; `tools/build_store.py`
+downloads a pinned commit of it at build time.
 
 ## Trademarks
 

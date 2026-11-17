@@ -8,14 +8,14 @@
   "maxDiskUsage": 67108864,
   "memoryKB": 196608,
   "iconGlyph": "WEB",
+  "mguHmi": ["ID7"],
   "screens": [{
     "name": "MAIN", "kind": "canvas", "title": "Base Player", "bar": true, "borderless": true,
     "buttons": [["BTN_START", "Connect"], ["BTN_END_VIDEO", "Stop video"], ["BTN_MIRROR", "To mirroring"], ["BTN_STOP", "Disconnect"], ["BTN_CLOSE", "Close"]]
   }],
   "settings": [
-    { "id": "language", "title": "Language", "type": "enum", "values": ["en", "uk"], "default": "en" },
-    { "id": "video_while_driving", "title": "Video while driving (private ground)", "type": "bool", "default": false },
-    { "id": "cert_date_tolerance", "title": "Tolerate certificate dates (wrong clock)", "type": "bool", "default": false }
+    { "key": "video_while_driving", "label": "Video while driving (private ground)", "type": "bool", "default": false },
+    { "key": "cert_date_tolerance", "label": "Tolerate certificate dates (wrong clock)", "type": "bool", "default": false }
   ],
   "config": {}
 }
