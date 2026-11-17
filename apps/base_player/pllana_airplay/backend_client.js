@@ -1,0 +1,141 @@
+'use strict';
+const EventEmitter = require('events'), net = require('net');
+function validVideoViewport(width, height) {
+    return Number.isInteger(width) && Number.isInteger(height) && width >= 16 && height >= 16 &&
+        width <= 2048 && height <= 2048 && !(width & 1) && !(height & 1) && width * height <= 2048 * 1080;
+}
+function controllableMedia(state) {
+    return (state.mode === 'audio' && (state.phase === 'audio' || state.phase === 'waiting')) ||
+        (state.mode === 'hls' && (state.phase === 'loading' || state.phase === 'mirroring')) ||
+        (state.mode === 'waiting' && state.phase === 'waiting' && state.connected === true &&
+            state.playlistPending === true && state.returnMode === 'waiting');
+}
+class BackendClient extends EventEmitter {
+    constructor(socketPath) {
+        super(); this.path = socketPath; this.socket = null; this.retry = null; this.timer = null; this.closed = false;
+        this.stopRequest = null; this.requestSequence = 0;
+        this.videoViewport = null;
+        this.viewportSocket = null; this.sentViewport = '';
+        this.state = { phase: 'stopped', profile: 'auto', mode: null, connected: false, supportsSessionStatus: false, origin: null, supportsVideoStop: false, supportsAutomaticMedia: false, pin: '', frame: null, file: '', audio: true, error: null };
+    }
+    update(s) { this.state = Object.assign({}, this.state, s); this.emit('state', this.state); }
+    connect() {
+        if (this.closed || this.socket) return;
+        const s = net.createConnection(this.path); this.socket = s; s.setEncoding('utf8'); let pending = '';
+        s.on('connect', () => {
+            if (this.closed || this.socket !== s) { s.end(); return; }
+            this.timer = setInterval(() => this.command('heartbeat'), 2000);
+            if (this.videoViewport) { this.command('heartbeat'); this.sendVideoViewport(); }
+        });
+        s.on('data', chunk => {
+            if (this.socket !== s || this.closed) return;
+            pending += chunk;
+            if (pending.length > 32768) { s.destroy(); return; }
+            let at;
+            while ((at = pending.indexOf('\n')) >= 0) {
+                const line = pending.slice(0, at); pending = pending.slice(at + 1);
+                try {
+                    const m = JSON.parse(line);
+                    if (m && m.state) this.update(m.state);
+                    if (m && m.reply && m.reply.command === 'stop' && this.stopRequest &&
+                        this.stopRequest.socket === s && m.reply.id === this.stopRequest.id) {
+                        this.finishStop(m.reply.ok === true ? null : 'receiver_stop_failed');
+                    }
+                } catch (e) { s.destroy(); return; }
+            }
+        });
+        s.on('error', () => { if (this.socket === s) this.update({ phase: 'error', connected: false, error: 'backend_unavailable', pin: '', frame: null }); });
+        s.on('close', () => {
+            if (this.stopRequest && this.stopRequest.socket === s) this.finishStop('backend_unavailable');
+            if (this.socket !== s) return;
+            clearInterval(this.timer); this.timer = null;
+            if (this.socket === s) this.socket = null;
+            if (this.viewportSocket === s) { this.viewportSocket = null; this.sentViewport = ''; }
+            this.update({ phase: 'stopped', connected: false, pin: '', frame: null, file: '' });
+            // The backend keeps the receiver alive for a grace period; reconnect
+            // quickly so the running session resumes without a visible gap.
+            if (!this.closed) this.retry = setTimeout(() => { this.retry = null; this.connect(); }, 500);
+        });
+    }
+    command(command, fields) {
+        if (this.closed || !this.socket || this.socket.destroyed || this.socket.connecting) return false;
+        try { this.socket.write(JSON.stringify(Object.assign({}, fields || {}, { command })) + '\n'); return true; }
+        catch (e) { return false; }
+    }
+    start(profile, viewport) {
+        profile = profile === undefined ? 'auto' : profile;
+        if (profile !== 'auto' && profile !== 'video' && profile !== 'audio') return false;
+        if (viewport !== undefined) {
+            if (!viewport || !validVideoViewport(viewport.width, viewport.height)) return false;
+            this.videoViewport = { width: viewport.width, height: viewport.height };
+        }
+        const fields = { profile };
+        if (this.videoViewport) fields.viewport = this.videoViewport;
+        const sent = this.command('start', fields);
+        if (sent && this.videoViewport) {
+            this.viewportSocket = this.socket; this.sentViewport = this.videoViewport.width + ':' + this.videoViewport.height;
+        }
+        return sent;
+    }
+    sendVideoViewport() {
+        const viewport = this.videoViewport;
+        if (!viewport) return false;
+        const key = viewport.width + ':' + viewport.height;
+        if (this.viewportSocket === this.socket && this.sentViewport === key && this.socket &&
+            !this.socket.destroyed && !this.socket.connecting && !this.closed) return true;
+        const sent = this.command('video-viewport', viewport);
+        if (sent) { this.viewportSocket = this.socket; this.sentViewport = key; }
+        return sent;
+    }
+    setVideoViewport(width, height) {
+        if (!validVideoViewport(width, height) || this.closed) return false;
+        this.videoViewport = { width, height };
+        return this.sendVideoViewport();
+    }
+    musicControl(action, value) {
+        const music = this.state.music;
+        if (this.stopRequest || this.state.phase === 'stopping' || !controllableMedia(this.state) || !music || !music.controls || music.controls[action] !== true ||
+            typeof music.epoch !== 'string' || !music.epoch || music.epoch.length > 128 || /[\x00-\x1f\x7f]/.test(music.epoch)) return false;
+        const transport = action === 'playPause' || action === 'next' || action === 'previous';
+        if (!(transport && (value === undefined || value === null)) &&
+            !(action === 'shuffle' && (value === 0 || value === 1)) &&
+            !(action === 'repeat' && Number.isInteger(value) && value >= 0 && value <= 2)) return false;
+        const fields = { action, epoch: music.epoch };
+        if (value !== undefined) fields.value = value;
+        return this.command('music-control', fields);
+    }
+    endVideo() {
+        if (!this.state.supportsVideoStop || this.state.profile === 'audio' ||
+            (this.state.mode !== 'hls' && this.state.phase !== 'loading' && !this.state.playlistPending)) return false;
+        return this.command('end-video');
+    }
+    resumeMirror() { return this.command('resume-mirror'); }
+    finishStop(error) {
+        const request = this.stopRequest;
+        if (!request) return;
+        this.stopRequest = null; clearTimeout(request.timer);
+        if (error) request.reject(Error(error)); else request.resolve();
+    }
+    stop() {
+        if (this.stopRequest) return this.stopRequest.promise;
+        const id = 'stop-' + (++this.requestSequence);
+        let resolve, reject;
+        const promise = new Promise((yes, no) => { resolve = yes; reject = no; });
+        const request = { id, socket: this.socket, promise, resolve, reject, timer: null };
+        this.stopRequest = request;
+        request.timer = setTimeout(() => this.finishStop('receiver_stop_timeout'), 12000);
+        if (!this.command('stop', { id })) this.finishStop('backend_unavailable');
+        return promise;
+    }
+    // Losing the UI is distinct from the driver's explicit disconnect. The
+    // backend keeps an audio-only session alive after this socket closes.
+    disconnect() {
+        this.finishStop('backend_unavailable');
+        this.closed = true; clearTimeout(this.retry); clearInterval(this.timer);
+        this.retry = this.timer = null;
+        if (this.socket && !this.socket.destroyed) this.socket.end();
+        return Promise.resolve();
+    }
+    destroy() { return this.stop().then(() => this.disconnect()); }
+}
+module.exports = { BackendClient };
