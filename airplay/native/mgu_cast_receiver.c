@@ -77,6 +77,15 @@ static void push(Cast *cast, GstAppSrc *src, guint8 *data, gsize size, guint64 p
     gst_app_src_push_buffer(src, buffer);
 }
 
+/* Base Player: the reader can finish before main() has entered the loop
+   (input that is rejected at once). g_main_loop_quit() on a loop that is not
+   running yet is lost and the process would wait for ever, so the quit is
+   queued and runs inside the loop. */
+static gboolean quit_in_loop(gpointer loop) {
+    g_main_loop_quit((GMainLoop *)loop);
+    return G_SOURCE_REMOVE;
+}
+
 static gpointer reader(gpointer data) {
     Cast *cast = (Cast *)data;
     guint8 header[16];
@@ -107,7 +116,7 @@ static gpointer reader(gpointer data) {
         }
     }
     say(result);
-    g_main_loop_quit(cast->loop);
+    g_idle_add(quit_in_loop, cast->loop);
     return NULL;
 }
 
