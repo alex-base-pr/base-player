@@ -27,5 +27,5 @@ State object the view renders (driven by the backend; the emulator fakes it):
   connected: bool
   mode: 'audio'|'hls'|'mirror'|'waiting'|null
   music: { title, artist, album, playbackState, controls:{...}, shuffle, repeat }
-  error: 'certificate'|'offline'|'dns'|'forbidden'|'not_found'|'unsupported'|'decode'|'media_failed'
+  error: 'certificate'|'certificate_untrusted'|'offline'|'dns'|'forbidden'|'not_found'|'unsupported'|'decode'|'media_failed'
   reason: human string (optional, extra detail)

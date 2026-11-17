@@ -14,7 +14,8 @@
   }],
   "settings": [
     { "id": "language", "title": "Мова / Language", "type": "enum", "values": ["uk", "en"], "default": "uk" },
-    { "id": "video_while_driving", "title": "Відео під час руху (приват. територія)", "type": "bool", "default": false }
+    { "id": "video_while_driving", "title": "Відео під час руху (приват. територія)", "type": "bool", "default": false },
+    { "id": "cert_date_tolerance", "title": "Терпимість до дати сертифіката (збитий годинник)", "type": "bool", "default": false }
   ],
   "config": {}
 }

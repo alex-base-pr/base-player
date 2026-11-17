@@ -54,7 +54,8 @@ const STRINGS = {
 
         // errors — the whole point of this rebuild: say the real reason
         err_title: 'Відео не вдалося відтворити',
-        err_certificate: 'Годинник авто збитий — сертифікат сайту виглядає простроченим. Зачекай, поки відновиться GPS-час, або онови Base Player (терпимість до дати).',
+        err_certificate: 'Годинник авто збитий — сертифікат сайту виглядає простроченим. Зачекай на GPS-час або ввімкни в налаштуваннях терпимість до дати сертифіката.',
+        err_certificate_untrusted: 'Сертифікат сайту не пройшов перевірку, і справа не в даті. Можливо, мережа підміняє з’єднання — наприклад, сторінка входу Wi-Fi.',
         err_offline: 'У головного блоку немає інтернету. Увімкни точку доступу телефона й перевір у Store → Wi-Fi.',
         err_dns: 'Немає доступу до DNS. Перевір інтернет на точці доступу телефона.',
         err_forbidden: 'Сервер відхилив запит (доступ заборонено).',
@@ -109,7 +110,8 @@ const STRINGS = {
         start_mirror_hint: 'Start screen mirroring on your phone.',
 
         err_title: 'Video could not play',
-        err_certificate: 'The car’s clock is wrong, so the site’s certificate looks expired. Wait for GPS time to recover, or update Base Player (date tolerance).',
+        err_certificate: 'The car’s clock is wrong, so the site’s certificate looks expired. Wait for GPS time, or turn on certificate date tolerance in settings.',
+        err_certificate_untrusted: 'The site’s certificate failed verification, and not because of its date. The network may be intercepting the connection, e.g. a Wi-Fi login page.',
         err_offline: 'The head unit has no internet. Turn on your phone’s hotspot and check Store → Wi-Fi.',
         err_dns: 'DNS is unreachable. Check internet on the phone hotspot.',
         err_forbidden: 'The server refused the request (forbidden).',
