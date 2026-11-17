@@ -1,7 +1,7 @@
 'use strict';
 const assert = require('assert'), fs = require('fs'), os = require('os'), path = require('path');
 const http = require('http'), EventEmitter = require('events');
-const { MusicControls, localHost, readSender, parseStatus } = require('../apps/pllana_airplay/music_controls');
+const { MusicControls, localHost, readSender, parseStatus } = require('../apps/base_player/music_controls');
 
 function field(tag, value, length) {
     const b = Buffer.alloc(8 + length); b.write(tag, 0); b.writeUInt32BE(length, 4);

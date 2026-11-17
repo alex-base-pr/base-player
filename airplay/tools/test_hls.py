@@ -84,9 +84,9 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 handler = functools.partial(Handler, directory=str(WORK))
 server = http.server.ThreadingHTTPServer(('127.0.0.1', 0), handler)
 threading.Thread(target=server.serve_forever, daemon=True).start()
-sys.path.insert(0, str(ROOT / 'apps/pllana_airplay'))
+sys.path.insert(0, str(ROOT / 'apps/base_player'))
 # Use exactly the app's mixer, replacing only the final hardware sink.
-audio = subprocess.check_output(['node', '-e', 'process.stdout.write(require("./apps/pllana_airplay/audio_route").AUDIO_SINK)'], cwd=ROOT, text=True)
+audio = subprocess.check_output(['node', '-e', 'process.stdout.write(require("./apps/base_player/audio_route").AUDIO_SINK)'], cwd=ROOT, text=True)
 audio = audio[:audio.index('alsasink')] + 'identity name=mgu-audio-probe ! fakesink'
 env = dict(os.environ, GST_PLUGIN_SYSTEM_PATH_1_0='', GST_PLUGIN_PATH_1_0=str(RUNTIME / 'plugins'),
            GST_REGISTRY=str(WORK / 'registry.bin'), GST_REGISTRY_FORK='no',

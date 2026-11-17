@@ -1,7 +1,7 @@
 """Pack the built runtime (.build/airplay/runtime) as an MGU Store tool kit.
 
 The kit is not bound to a UID: airplay/runtime/launch.js finds the app's UID
-on the head unit. Output: dist/pllana-airplay-receiver@<version>.tgz, reproducible
+on the head unit. Output: dist/base-player-receiver@<version>.tgz, reproducible
 (sorted members, owner 0:0, fixed mtime, gzip mtime 0).
 """
 import argparse
@@ -15,7 +15,7 @@ import tarfile
 
 ROOT = Path(__file__).resolve().parents[2]
 RUNTIME = ROOT / '.build/airplay/runtime'
-TOOL = 'pllana-airplay-receiver'
+TOOL = 'base-player-receiver'
 UNIT = TOOL + '.service'
 MTIME = int(os.environ.get('SOURCE_DATE_EPOCH', '1767225600'))
 
@@ -34,10 +34,10 @@ def collect():
         mode = 0o755 if name.startswith('bin/') or name == 'lib/ld-linux-x86-64.so.2' else 0o644
         entries.append(('runtime/' + name, data, mode))
     entries.append(('runtime/build-manifest.json', (RUNTIME / 'build-manifest.json').read_bytes(), 0o644))
-    for name, mode in [('launch.js', 0o644), ('activate.js', 0o644), ('deactivate.js', 0o644), ('p2p_probe.js', 0o644), ('check.sh', 0o755)]:
+    for name, mode in [('launch.js', 0o644), ('p2p_probe.js', 0o644), ('check.sh', 0o755)]:
         entries.append((name, (ROOT / 'airplay/runtime' / name).read_bytes(), mode))
     entries.append(('network.js', (ROOT / 'airplay/network.js').read_bytes(), 0o644))
-    for name in ['LICENSE', 'LICENSE.md', 'THIRD_PARTY_NOTICES.md']:
+    for name in ['LICENSE', 'NOTICE.md', 'THIRD_PARTY_NOTICES.md']:
         entries.append((name, (ROOT / name).read_bytes(), 0o644))
     return manifest, entries
 
@@ -53,18 +53,15 @@ def main():
     unit = (ROOT / 'airplay/runtime' / UNIT).read_bytes()
     component = {
         'id': TOOL, 'kind': 'tool', 'version': args.version,
-        'title': 'PllanaCast for BMW receiver runtime',
-        'description': 'UxPlay receiver with GStreamer video/HLS and SmartX audio for PllanaCast for BMW',
+        'title': 'Base Player receiver runtime',
+        'description': 'UxPlay receiver with GStreamer video/HLS and SmartX audio for Base Player',
         'mguHmi': ['ID7'], 'uninstallable': True,
         'requires': {'mgu-deploy': '0.7.17'},
-        # Take over from (and on removal give back to) the older private
-        # mgu-airplay runtime, which the Store can neither replace nor remove.
-        'activate': ['node', 'activate.js'], 'deactivate': ['node', 'deactivate.js'],
         'files': [{'path': n, 'mode': format(m, '04o'), 'sha256': sha(b)} for n, b, m in entries],
         'units': [{'name': UNIT}],
         'enable': [{'unit': UNIT, 'target': 'multi-user.target'}],
         'restart': [UNIT], 'check': ['check.sh'],
-        'crashNames': ['mgu-airplay', 'uxplay', 'airplay-launch', 'airplay-backend-launch'],
+        'crashNames': ['base-player-rt', 'uxplay', 'airplay-launch', 'airplay-backend-launch'],
     }
     members = [('component.json', json.dumps(component, indent=2).encode() + b'\n', 0o644),
                ('units/' + UNIT, unit, 0o644)] + [('files/' + n, b, m) for n, b, m in entries]

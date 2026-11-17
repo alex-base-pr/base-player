@@ -34,7 +34,7 @@ let socketInode = 1, exitCode = null;
 const fakeFs = {existsSync:()=>true,lstatSync:()=>({isSocket:()=>true,uid:12233}),unlinkSync:()=>{},writeFileSync:(file,text,options)=>persisted.push({file,text,options}),chmodSync:()=>{},
     statSync:p=>({dev:1,ino:/control\.sock$/.test(p)?socketInode:7,mtime:new Date(0)})};
 const modules = {
-    './resolver':{refresh:()=>startupOrder.push('dns'),hasUplink:()=>uplinkOnline},fs:fakeFs,path:require('path'),'./receiver':{Receiver,validVideoViewport:require('../apps/pllana_airplay/receiver').validVideoViewport},
+    './resolver':{refresh:()=>startupOrder.push('dns'),hasUplink:()=>uplinkOnline},fs:fakeFs,path:require('path'),'./receiver':{Receiver,validVideoViewport:require('../apps/base_player/receiver').validVideoViewport},
     './audio_route':{AudioRoute,AUDIO_SINK:'fakesink'},'./kit/signals':{},
     './music_controls':{MusicControls},
     './media_player':{MediaPlayer:class extends EventEmitter{constructor(o){super();player=this;this.options=o;this.state={state:'stopped'};this.closed=0;}setViewport(w,h){this.viewport={width:w,height:h};return true;}close(){this.closed++;return Promise.resolve();}stop(){}}},
@@ -51,7 +51,7 @@ const modules = {
     }},
     net:{createServer:cb=>{accept=cb; return server;}}
 };
-const backendSource=fs.readFileSync(require('path').join(__dirname,'../apps/pllana_airplay/backend.js'),'utf8');
+const backendSource=fs.readFileSync(require('path').join(__dirname,'../apps/base_player/backend.js'),'utf8');
 const runBackend=()=>vm.runInNewContext(backendSource, {
     require:name=>{assert(modules[name],name); return modules[name];},
     __dirname:'/app/source/javascript',__filename:'/app/source/javascript/backend.js',Buffer,Promise,Date,JSON,Error,
@@ -150,7 +150,7 @@ const turn = () => new Promise(resolve=>setImmediate(resolve));
     assert.deepStrictEqual(dlna.actions,['stop','toggle','next'],'BMW music buttons control Android music; stale epochs are ignored');
     assert.strictEqual(remote.actions.length,0,'Android music never reaches the iPhone remote');
     dlna.set(null);
-    // PllanaCast for BMW (Android screen): authenticated with the code on the display.
+    // Base Player (Android screen): authenticated with the code on the display.
     assert.strictEqual(screen.running,true,'the screen receiver runs with reception');
     assert.strictEqual(screen.options.code(),receiver.state.pin||receiver.lastPassword);
     assert.strictEqual(dlna.options.castPort,7104,'SSDP advertises the screen receiver');

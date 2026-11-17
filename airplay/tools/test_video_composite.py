@@ -178,7 +178,7 @@ def composite(binary, app, retained, width, height, name):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--store-root', type=Path, default=ROOT / '.local/airplay/store-validator')
-    parser.add_argument('--app-root', type=Path, default=ROOT / 'apps/pllana_airplay')
+    parser.add_argument('--app-root', type=Path, default=ROOT / 'apps/base_player')
     parser.add_argument('--frame', type=Path, help='check an already retained native fixture instead of running HLS')
     parser.add_argument('--retained-dir', type=Path, help='compose every actual frame listed in an existing frames.json')
     parser.add_argument('--viewport', default='1920x720', help='target for --frame')

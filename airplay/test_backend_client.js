@@ -14,7 +14,7 @@ const context = {
     setInterval: fn => { intervals.add(fn); return fn; }, clearInterval: fn => intervals.delete(fn),
     setTimeout: (fn,ms) => { fn.ms=ms; retries.add(fn); return fn; }, clearTimeout: fn => retries.delete(fn),
 };
-vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../apps/pllana_airplay/backend_client.js'), 'utf8'), context);
+vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../apps/base_player/backend_client.js'), 'utf8'), context);
 const { BackendClient } = context.module.exports;
 (async () => {
     const client = new BackendClient('/private/control.sock'); client.connect();

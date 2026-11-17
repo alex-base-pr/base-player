@@ -19,7 +19,7 @@ const { validUri } = require('./media_player');
 
 const SSDP_ADDRESS = '239.255.255.250', SSDP_PORT = 1900, HTTP_PORT = 7103;
 const DEVICE = 'urn:schemas-upnp-org:device:MediaRenderer:1';
-const CAST_DEVICE = 'urn:pllana-io:device:CastReceiver:1';
+const CAST_DEVICE = 'urn:base-player:device:CastReceiver:1';
 const AVT = 'urn:schemas-upnp-org:service:AVTransport:1';
 const RCS = 'urn:schemas-upnp-org:service:RenderingControl:1';
 const CMS = 'urn:schemas-upnp-org:service:ConnectionManager:1';
@@ -168,7 +168,7 @@ class DlnaRenderer extends EventEmitter {
         super();
         this.options = options || {};
         this.player = this.options.player;
-        this.name = this.options.name || 'PllanaCast for BMW';
+        this.name = this.options.name || 'Base Player';
         this.version = this.options.version || '0';
         this.port = this.options.port === undefined ? HTTP_PORT : this.options.port;
         this.ssdpPort = this.options.ssdpPort === undefined ? SSDP_PORT : this.options.ssdpPort;
@@ -291,10 +291,10 @@ class DlnaRenderer extends EventEmitter {
             [DEVICE, 'uuid:' + this.uuid + '::' + DEVICE]].concat(Object.keys(SERVICES).map(k => [SERVICES[k], 'uuid:' + this.uuid + '::' + SERVICES[k]]))
             .concat(this.options.castPort ? [[CAST_DEVICE, 'uuid:' + this.uuid + '::' + CAST_DEVICE]] : []);
     }
-    // The PllanaCast for BMW app finds the screen receiver through the same SSDP.
-    castHeaders() { return this.options.castPort ? ['X-PLLANA-CAST: ' + this.options.castPort, 'X-PLLANA-NAME: ' + this.name] : []; }
+    // The Base Player app finds the screen receiver through the same SSDP.
+    castHeaders() { return this.options.castPort ? ['X-BASE-CAST: ' + this.options.castPort, 'X-BASE-NAME: ' + this.name] : []; }
     location(address) { return 'http://' + address + ':' + this.port + '/dlna/description.xml'; }
-    server_header() { return 'Linux/4.14 UPnP/1.0 pllana-airplay/' + this.version; }
+    server_header() { return 'Linux/4.14 UPnP/1.0 base-player/' + this.version; }
     announce(nts) {
         if (!this.ssdp) return;
         for (const local of this.localAddresses()) {
@@ -337,9 +337,9 @@ class DlnaRenderer extends EventEmitter {
             '<SCPDURL>/dlna/' + k + '.xml</SCPDURL><controlURL>/dlna/' + k + '/control</controlURL><eventSubURL>/dlna/' + k + '/event</eventSubURL></service>').join('');
         return '<?xml version="1.0" encoding="utf-8"?>\n<root xmlns="urn:schemas-upnp-org:device-1-0" xmlns:dlna="urn:schemas-dlna-org:device-1-0">' +
             '<specVersion><major>1</major><minor>0</minor></specVersion><device><deviceType>' + DEVICE + '</deviceType>' +
-            '<friendlyName>' + xml(this.name) + '</friendlyName><manufacturer>Leon Pllana IT-Solutions</manufacturer><manufacturerURL>https://pllana.io</manufacturerURL>' +
+            '<friendlyName>' + xml(this.name) + '</friendlyName><manufacturer>Base Player</manufacturer>' +
             '<modelDescription>BMW Media Renderer</modelDescription><modelName>' + xml(this.name) + '</modelName><modelNumber>' + xml(this.version) + '</modelNumber>' +
-            '<modelURL>https://pllana.io</modelURL><UDN>uuid:' + this.uuid + '</UDN><dlna:X_DLNADOC>DMR-1.50</dlna:X_DLNADOC>' +
+            '<UDN>uuid:' + this.uuid + '</UDN><dlna:X_DLNADOC>DMR-1.50</dlna:X_DLNADOC>' +
             '<iconList><icon><mimetype>image/png</mimetype><width>140</width><height>140</height><depth>24</depth><url>/dlna/icon.png</url></icon></iconList>' +
             '<serviceList>' + services + '</serviceList></device></root>\n';
     }

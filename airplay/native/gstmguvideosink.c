@@ -15,7 +15,7 @@
 #define MAP_BYTES (64u + SLOT_COUNT * MAX_EDGE * MAX_EDGE * 3u / 2u)
 #define MGVF_MAGIC 0x4656474du
 #ifndef PACKAGE
-#define PACKAGE "mgu-airplay"
+#define PACKAGE "base-player-rt"
 #endif
 
 typedef struct {

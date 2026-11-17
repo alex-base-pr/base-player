@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 from urllib.parse import quote
 
-REPOSITORY = 'pllanaio/bmw-airplay'
+REPOSITORY = 'alex-base-pr/base-player'
 
 
 def artifact(path, tag):
@@ -22,17 +22,17 @@ def main():
     parser.add_argument('--tag', required=True)
     args = parser.parse_args()
     dist = Path(args.dist)
-    app = dist / ('pllana_airplay@%s.tgz' % args.app_version)
-    runtime = dist / ('pllana-airplay-receiver@%s.tgz' % args.runtime_version)
+    app = dist / ('base_player@%s.tgz' % args.app_version)
+    runtime = dist / ('base-player-receiver@%s.tgz' % args.runtime_version)
     catalog = {'schema': 2, 'components': [
-        {'id': 'pllana-airplay-receiver', 'kind': 'tool', 'title': 'PllanaCast for BMW Empfänger',
-         'description': 'UxPlay receiver, video and BMW audio output for PllanaCast for BMW',
-         'author': 'Leon Pllana IT-Solutions', 'version': args.runtime_version, 'artifact': artifact(runtime, args.tag),
+        {'id': 'base-player-receiver', 'kind': 'tool', 'title': 'Base Player Empfänger',
+         'description': 'UxPlay receiver, video and BMW audio output for Base Player',
+         'author': 'Base Player', 'version': args.runtime_version, 'artifact': artifact(runtime, args.tag),
          'requires': {'mgu-deploy': '0.7.17'}, 'uninstallable': True, 'mguHmi': ['ID7']},
-        {'id': 'pllana_airplay', 'kind': 'app', 'title': 'PllanaCast for BMW',
+        {'id': 'base_player', 'kind': 'app', 'title': 'Base Player',
          'description': 'iPhone screen mirroring and YouTube/AirPlay video on the iDrive display with BMW audio',
-         'author': 'Leon Pllana IT-Solutions', 'version': args.app_version, 'artifact': artifact(app, args.tag),
-         'requires': {'pllana-airplay-receiver': args.runtime_version, 'mgu-uplink': '0.7.3', 'mgu-render': '0.6.11', 'mgu-deploy': '0.7.17'},
+         'author': 'Base Player', 'version': args.app_version, 'artifact': artifact(app, args.tag),
+         'requires': {'base-player-receiver': args.runtime_version, 'mgu-uplink': '0.7.3', 'mgu-render': '0.6.11', 'mgu-deploy': '0.7.17'},
          'uninstallable': True, 'mguHmi': ['ID7']},
     ]}
     (dist / 'catalog.json').write_text(json.dumps(catalog, indent=2) + '\n')

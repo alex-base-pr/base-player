@@ -30,7 +30,7 @@ function refresh() {
         const text = content(lease()) || OFFLINE;
         // A removed lease must not leave a previous hotspot's DNS in place.
         // A later USB/Wi-Fi lease replaces it without restarting the receiver.
-        const target = '/run/mgu-airplay/resolv.conf';
+        const target = '/run/base-player-rt/resolv.conf';
         fd = fs.openSync(target, fs.constants.O_RDWR | fs.constants.O_NOFOLLOW);
         const s = fs.fstatSync(fd);
         if (!s.isFile() || s.uid !== process.getuid() || s.nlink !== 1 || s.size > 4096) return;

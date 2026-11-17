@@ -40,7 +40,7 @@ jobs:
       - name: Read versions
         id: version
         run: |
-          app=$(python3 -c "import json;print(json.load(open('apps/pllana_airplay/app.json'))['version'])")
+          app=$(python3 -c "import json;print(json.load(open('apps/base_player/app.json'))['version'])")
           pkg=$(python3 -c "import json;print(json.load(open('package.json'))['version'])")
           test "$app" = "$pkg"
           echo "version=$app" >> "$GITHUB_OUTPUT"
@@ -80,7 +80,7 @@ jobs:
           GST_PLUGIN_PATH=.build/airplay/runtime/plugins ./test_video_sink
           sh airplay/tools/test_lifecycle.sh
           python3 airplay/tools/test_hls.py --stretch
-          python3 airplay/test_mdns_route.py --binary .build/airplay/runtime/bin/mgu-airplay-mdns-route --cli-only
+          python3 airplay/test_mdns_route.py --binary .build/airplay/runtime/bin/base-player-rt-mdns-route --cli-only
       - name: JavaScript and Store contract tests
         run: |
           node airplay/test_audio_route.js && node airplay/test_backend.js && node airplay/test_receiver.js
@@ -99,25 +99,25 @@ jobs:
           useradd -m builder
           chown -R builder .
           su builder -c "python3 airplay/tools/package_runtime.py --version ${{ steps.version.outputs.version }} --out dist"
-          su builder -c "mkdir -p dist/app && MGU_OUT=\$PWD/dist/app python3 tools/build_store.py --app pllana_airplay --version ${{ steps.version.outputs.version }} --source apps/pllana_airplay --release-package"
+          su builder -c "mkdir -p dist/app && MGU_OUT=\$PWD/dist/app python3 tools/build_store.py --app base_player --version ${{ steps.version.outputs.version }} --source apps/base_player --release-package"
           mv dist/app/*.tgz dist/
           python3 tools/make_catalog.py --dist dist --app-version ${{ steps.version.outputs.version }} \
             --runtime-version ${{ steps.version.outputs.version }} --tag v${{ steps.version.outputs.version }}
           (cd dist && sha256sum *.tgz catalog.json > SHA256SUMS && cat SHA256SUMS)
       - name: Check package contents
         run: |
-          tar -tzf dist/pllana-airplay-receiver@*.tgz | grep -qx 'files/launch.js'
-          tar -tzf dist/pllana-airplay-receiver@*.tgz | grep -qx 'units/pllana-airplay-receiver.service'
-          tar -tzf dist/pllana-airplay-receiver@*.tgz | grep -qx 'files/activate.js'
-          tar -xzOf dist/pllana-airplay-receiver@*.tgz component.json | python3 -c "import json,sys;c=json.load(sys.stdin);assert c['id']=='pllana-airplay-receiver' and c['activate']==['node','activate.js'],c"
-          tar -tzf dist/pllana-airplay-receiver@*.tgz | grep -qx 'files/runtime/bin/uxplay'
-          tar -tzf dist/pllana-airplay-receiver@*.tgz | grep -qx 'files/runtime/bin/mgu-airplay-mdns-route'
-          tar -tzf dist/pllana-airplay-receiver@*.tgz | grep -qx 'files/runtime/bin/mgu-media-player'
-          tar -tzf dist/pllana-airplay-receiver@*.tgz | grep -qx 'files/runtime/bin/iw'
-          tar -tzf dist/pllana-airplay-receiver@*.tgz | grep -qx 'files/runtime/bin/mgu-cast-receiver'
-          tar -tzf dist/pllana-airplay-receiver@*.tgz | grep -qx 'files/p2p_probe.js'
-          ! tar -tzf dist/pllana_airplay@*.tgz | grep -q '^node_modules/oap-sdk/'
-          tar -xzOf dist/pllana_airplay@*.tgz package.json | python3 -c "import json,sys;p=json.load(sys.stdin);assert p['mguInternet'] is True and p['mguHmi']==['ID7'],p"
+          tar -tzf dist/base-player-receiver@*.tgz | grep -qx 'files/launch.js'
+          tar -tzf dist/base-player-receiver@*.tgz | grep -qx 'units/base-player-receiver.service'
+          tar -tzf dist/base-player-receiver@*.tgz | grep -qx 'files/activate.js'
+          tar -xzOf dist/base-player-receiver@*.tgz component.json | python3 -c "import json,sys;c=json.load(sys.stdin);assert c['id']=='base-player-receiver' and c['activate']==['node','activate.js'],c"
+          tar -tzf dist/base-player-receiver@*.tgz | grep -qx 'files/runtime/bin/uxplay'
+          tar -tzf dist/base-player-receiver@*.tgz | grep -qx 'files/runtime/bin/base-player-rt-mdns-route'
+          tar -tzf dist/base-player-receiver@*.tgz | grep -qx 'files/runtime/bin/mgu-media-player'
+          tar -tzf dist/base-player-receiver@*.tgz | grep -qx 'files/runtime/bin/iw'
+          tar -tzf dist/base-player-receiver@*.tgz | grep -qx 'files/runtime/bin/mgu-cast-receiver'
+          tar -tzf dist/base-player-receiver@*.tgz | grep -qx 'files/p2p_probe.js'
+          ! tar -tzf dist/base_player@*.tgz | grep -q '^node_modules/oap-sdk/'
+          tar -xzOf dist/base_player@*.tgz package.json | python3 -c "import json,sys;p=json.load(sys.stdin);assert p['mguInternet'] is True and p['mguHmi']==['ID7'],p"
       - name: Check out pinned Store validator
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
@@ -126,11 +126,11 @@ jobs:
           path: .store
           persist-credentials: false
       - name: Validate packages with the Store deploy tool
-        run: node test/store_package_check.js .store dist/pllana_airplay@${{ steps.version.outputs.version }}.tgz dist/pllana-airplay-receiver@${{ steps.version.outputs.version }}.tgz
+        run: node test/store_package_check.js .store dist/base_player@${{ steps.version.outputs.version }}.tgz dist/base-player-receiver@${{ steps.version.outputs.version }}.tgz
       - name: Check actual renderer fills video viewports without cropping
         run: |
           mkdir -p .build/airplay/composite-app
-          tar -xzf "dist/pllana_airplay@${{ steps.version.outputs.version }}.tgz" -C .build/airplay/composite-app
+          tar -xzf "dist/base_player@${{ steps.version.outputs.version }}.tgz" -C .build/airplay/composite-app
           python3 airplay/tools/test_video_composite.py --store-root .store --app-root .build/airplay/composite-app/javascript
       - uses: actions/upload-artifact@v4
         with:
@@ -142,7 +142,7 @@ jobs:
           if-no-files-found: error
 
   android:
-    # PllanaCast for BMW: Android sender app for phones whose system "Cast" is
+    # Base Player: Android sender app for phones whose system "Cast" is
     # Google Cast (e.g. Pixel). The runner image ships the Android SDK.
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -162,7 +162,7 @@ jobs:
           PLLANA_CAST_KEY_PASSWORD: ${{ secrets.PLLANA_CAST_KEY_PASSWORD }}
         run: |
           set -eu
-          version=$(python3 -c "import json;print(json.load(open('apps/pllana_airplay/app.json'))['version'])")
+          version=$(python3 -c "import json;print(json.load(open('apps/base_player/app.json'))['version'])")
           if [ -n "${KEYSTORE_BASE64:-}" ]; then
             echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/pllana-cast.jks"
             export PLLANA_CAST_KEYSTORE="$RUNNER_TEMP/pllana-cast.jks"
@@ -186,7 +186,7 @@ jobs:
 
   publish:
     needs: [build, android]
-    if: github.ref == 'refs/heads/main' && github.repository == 'pllanaio/bmw-airplay'
+    if: github.ref == 'refs/heads/main' && github.repository == 'alex-base-pr/base-player'
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -210,12 +210,12 @@ jobs:
             echo "v$VERSION is already published; release assets are never replaced."
           else
             gh release create "v$VERSION" --repo "$REPO" --target "$GITHUB_SHA" \
-              --title "PllanaCast for BMW $VERSION" \
-              --notes "Store packages: app pllana_airplay $VERSION and receiver pllana-airplay-receiver $VERSION. Add pllanaio/bmw-airplay in MGU Store and choose Releases. Android: install pllana-cast-$VERSION.apk on the phone (see docs/ANDROID.md)." \
-              dist/pllana_airplay@$VERSION.tgz dist/pllana-airplay-receiver@$VERSION.tgz dist/SHA256SUMS dist/pllana-cast-$VERSION.apk
+              --title "Base Player $VERSION" \
+              --notes "Store packages: app base_player $VERSION and receiver base-player-receiver $VERSION. Add alex-base-pr/base-player in MGU Store and choose Releases. Android: install pllana-cast-$VERSION.apk on the phone (see docs/ANDROID.md)." \
+              dist/base_player@$VERSION.tgz dist/base-player-receiver@$VERSION.tgz dist/SHA256SUMS dist/pllana-cast-$VERSION.apk
             if ! gh release view catalog --repo "$REPO" > /dev/null 2>&1; then
-              gh release create catalog --repo "$REPO" --target "$GITHUB_SHA" --title "PllanaCast for BMW Store catalog" \
-                --notes "Store catalog for pllanaio/bmw-airplay. Choose Releases in MGU Store."
+              gh release create catalog --repo "$REPO" --target "$GITHUB_SHA" --title "Base Player Store catalog" \
+                --notes "Store catalog for alex-base-pr/base-player. Choose Releases in MGU Store."
             fi
             gh release upload catalog dist/catalog.json --repo "$REPO" --clobber
           fi

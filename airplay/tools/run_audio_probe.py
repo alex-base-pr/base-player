@@ -24,7 +24,7 @@ parser.add_argument('--test-volume', type=int, choices=range(1, 21), metavar='1.
 args = parser.parse_args()
 if args.test_volume is not None and (not args.tone or args.physical or args.ram or args.speakers):
     parser.error('--test-volume requires --tone on the regular OAP route')
-base = '/var/opt/pllana-airplay-probe-010'
+base = '/var/opt/base-player-probe-010'
 remote = connect()
 if args.pcm or args.tone:
     guard = ('const fs=require("fs"),p=' + json.dumps(base) + ';'

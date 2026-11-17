@@ -1,5 +1,5 @@
 'use strict';
-process.title = 'mgu-airplay';
+process.title = 'base-player-rt';
 const resolver = require('./resolver');
 resolver.refresh();
 setInterval(() => resolver.refresh(), 2000).unref();
@@ -17,13 +17,13 @@ if (fs.existsSync(socketPath)) {
     if (!s.isSocket() || s.uid !== process.getuid()) throw Error('invalid_control_socket');
     fs.unlinkSync(socketPath);
 }
-const receiver = new Receiver({ dataDir: data, runtime: process.env.MGU_AIRPLAY_RUNTIME || (fs.existsSync('/var/opt/pllana-airplay-receiver/current/runtime') ? '/var/opt/pllana-airplay-receiver/current/runtime' : '/var/opt/mgu-airplay/current/runtime'), audioSink: AUDIO_SINK, authentication: 'password', hls: () => resolver.hasUplink() });
+const receiver = new Receiver({ dataDir: data, runtime: process.env.BASE_PLAYER_RUNTIME || (fs.existsSync('/var/opt/base-player-receiver/current/runtime') ? '/var/opt/base-player-receiver/current/runtime' : '/var/opt/base-player-rt/current/runtime'), audioSink: AUDIO_SINK, authentication: 'password', hls: () => resolver.hasUplink() });
 // Android: a DLNA/UPnP media renderer plays URLs from the phone through the
 // same BMW video and audio path. It is announced only while reception is on.
 const { MediaPlayer } = require('./media_player');
 const { DlnaRenderer } = require('./dlna_renderer');
 const player = new MediaPlayer({ runtime: receiver.runtime, dataDir: data, audioSink: AUDIO_SINK });
-// PllanaCast for BMW app (e.g. Pixel phones, whose system "Cast" is Google Cast):
+// Base Player app (e.g. Pixel phones, whose system "Cast" is Google Cast):
 // screen and sound, authenticated with the code shown in the car.
 const { CastReceiver, PORT: CAST_PORT } = require('./cast_receiver');
 const screenCast = new CastReceiver({ runtime: receiver.runtime, dataDir: data, audioSink: AUDIO_SINK, code: () => receiver.state.pin || receiver.lastPassword });

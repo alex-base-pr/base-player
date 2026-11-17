@@ -12,6 +12,6 @@ vm.runInNewContext(source.replace(entry, 'module.exports = {validateArtifact};')
 const work = fs.mkdtempSync(path.join(os.tmpdir(), 'airplay-store-check-'));
 const app = sandbox.module.exports.validateArtifact(path.resolve(appPath), work);
 const tool = sandbox.module.exports.validateArtifact(path.resolve(toolPath), work);
-assert.equal(app.id, 'pllana_airplay'); assert.equal(tool.id, 'pllana-airplay-receiver');
+assert.equal(app.id, 'base_player'); assert.equal(tool.id, 'base-player-receiver');
 assert.equal(app.version, tool.version);
 console.log('Store deploy validator accepted ' + app.id + '@' + app.version + ' and ' + tool.id + '@' + tool.version);

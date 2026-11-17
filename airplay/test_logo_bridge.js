@@ -1,6 +1,6 @@
 'use strict';
-const assert = require('assert'), { LogoBridge } = require('../apps/pllana_airplay/logo_bridge');
-const brand = require('../apps/pllana_airplay/brand_logo');
+const assert = require('assert'), { LogoBridge } = require('../apps/base_player/logo_bridge');
+const brand = require('../apps/base_player/brand_logo');
 const messages = [];
 const gpu = { ready: true, native: true, sock: {}, placement: { w: 1920, h: 720, scale: 1 }, _write: b => messages.push(b) };
 const c = { n: 0, _grow() {} }, buffer = new ArrayBuffer(128);

@@ -1,6 +1,6 @@
 'use strict';
 const assert = require('assert');
-const { VideoBridge } = require('../apps/pllana_airplay/video_bridge');
+const { VideoBridge } = require('../apps/base_player/video_bridge');
 const messages = [];
 const gpu = { ready: true, native: true, info: { video: true }, sock: {},
     placement: { w: 1920, h: 600, scale: 1 }, _write: b => messages.push(b.readUInt32LE(0)) };

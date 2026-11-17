@@ -83,8 +83,8 @@ def main():
     args = parser.parse_args()
     if hasattr(os, 'geteuid') and os.geteuid() == 0:
         raise SystemExit('Run the Store build as an unprivileged user')
-    if args.app != 'pllana_airplay':
-        raise SystemExit('Only pllana_airplay is supported by the bound native backend')
+    if args.app != 'base_player':
+        raise SystemExit('Only base_player is supported by the bound native backend')
     if not re.fullmatch(r'(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)', args.version):
         raise SystemExit('Invalid app version')
     source_path = ROOT / args.source

@@ -11,7 +11,7 @@ const mockFs = {
             if (lease === null) throw Error('ENOENT');
             return 1;
         }
-        assert.strictEqual(file, '/run/mgu-airplay/resolv.conf', 'never write BMW system DNS');
+        assert.strictEqual(file, '/run/base-player-rt/resolv.conf', 'never write BMW system DNS');
         return 2;
     },
     fstatSync(fd) { return { isFile: () => true, uid: fd === 1 ? leaseOwner : targetOwner,
@@ -23,7 +23,7 @@ const mockFs = {
 };
 const context = { require: name => name === 'fs' ? mockFs : require(name), module: { exports: {} }, Buffer,
     process: { getuid: () => 12233 } };
-vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../apps/pllana_airplay/resolver.js'), 'utf8'), context);
+vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../apps/base_player/resolver.js'), 'utf8'), context);
 const { refresh, content, hasUplink } = context.module.exports;
 assert.strictEqual(content(null), null);
 assert.strictEqual(content({ dns: ['0.0.0.0', '127.0.0.1', '::1', 'invalid'] }), null);

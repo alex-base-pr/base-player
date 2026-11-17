@@ -1,13 +1,13 @@
 [Unit]
-Description=PllanaCast for BMW receiver (Store runtime)
+Description=Base Player receiver (Store runtime)
 After=persistency-fs.target alsaroutingadapters.service mdnsd.service mgu-uplink.service
 Wants=persistency-fs.target
-Conflicts=mgu-airplay.service
+Conflicts=mgu-airplay.service pllana-airplay-receiver.service
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/node /var/opt/pllana-airplay-receiver/current/launch.js
-ExecStopPost=/usr/bin/node /var/opt/pllana-airplay-receiver/current/network.js remove
+ExecStart=/usr/bin/node /var/opt/base-player-receiver/current/launch.js
+ExecStopPost=/usr/bin/node /var/opt/base-player-receiver/current/network.js remove
 Restart=always
 RestartSec=2
 KillMode=control-group

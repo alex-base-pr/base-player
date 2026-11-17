@@ -3,8 +3,6 @@ set -eu
 BASE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 /usr/bin/node --check "$BASE/launch.js"
 /usr/bin/node --check "$BASE/network.js"
-/usr/bin/node --check "$BASE/activate.js"
-/usr/bin/node --check "$BASE/deactivate.js"
 /usr/bin/node --check "$BASE/p2p_probe.js"
 "$BASE/runtime/lib/ld-linux-x86-64.so.2" --library-path "$BASE/runtime/lib" --list "$BASE/runtime/bin/uxplay" >/dev/null
 "$BASE/runtime/lib/ld-linux-x86-64.so.2" --library-path "$BASE/runtime/lib" --list "$BASE/runtime/bin/mgu-media-player" >/dev/null

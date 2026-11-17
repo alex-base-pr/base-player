@@ -1,11 +1,11 @@
 'use strict';
-// End-to-end check for the PllanaCast for BMW app (CI, Android emulator): runs the
+// End-to-end check for the Base Player app (CI, Android emulator): runs the
 // real CastReceiver (handshake, code check, framing) on the host and, instead
 // of the native decoder, a sink that records the H.264 stream and counts
 // frames. The emulator reaches the host as 10.0.2.2 (seen here as loopback).
 //   node cast_e2e_receiver.js <out-dir> <code> <seconds>
 const fs = require('fs'), path = require('path'), cp = require('child_process');
-const { CastReceiver } = require('../../apps/pllana_airplay/cast_receiver');
+const { CastReceiver } = require('../../apps/base_player/cast_receiver');
 
 const out = path.resolve(process.argv[2] || 'cast-e2e'), code = process.argv[3] || '246810', seconds = Number(process.argv[4] || 120);
 fs.mkdirSync(out, { recursive: true });

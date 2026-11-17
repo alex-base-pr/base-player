@@ -73,7 +73,7 @@ function liveGroup(group) {
 }
 
 async function exercise(mode) {
-    const Receiver = require('../apps/pllana_airplay/receiver').Receiver;
+    const Receiver = require('../apps/base_player/receiver').Receiver;
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'airplay-disconnect-'));
     const readyFile = path.join(directory, 'fixture.json');
     let child, socket, group, socketClosed = false;

@@ -4,7 +4,7 @@
 // the real native player: HTTP video to shared-memory frames, pause, seek,
 // audio-only media, missing files and clean exit.
 const assert = require('assert'), EventEmitter = require('events'), fs = require('fs'), os = require('os'), path = require('path'), http = require('http'), cp = require('child_process');
-const { MediaPlayer, validUri } = require('../apps/pllana_airplay/media_player');
+const { MediaPlayer, validUri } = require('../apps/base_player/media_player');
 const wait = ms => new Promise(r => setTimeout(r, ms));
 
 async function unit() {
@@ -114,7 +114,7 @@ async function native(runtime) {
         await until(() => player.state.state === 'stopped' && player.state.error, 8000, 'missing media');
         assert.strictEqual(player.state.error, 'player_not_found');
         // Full chain: an Android controller drives the renderer over UPnP.
-        const { DlnaRenderer } = require('../apps/pllana_airplay/dlna_renderer');
+        const { DlnaRenderer } = require('../apps/base_player/dlna_renderer');
         const renderer = new DlnaRenderer({ player, dataDir, port: 0, ssdpPort: 0, allowLoopback: true, host: '127.0.0.1', interfaces: () => ({}) });
         await renderer.start();
         const soap = (action, args) => new Promise((resolve, reject) => {

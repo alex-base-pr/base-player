@@ -120,7 +120,7 @@ function meterBuffers() {
         if (process.env.MGU_PCM_PROBE_ROOT) {
             const path = require('path'), cp = require('child_process');
             const base = process.env.MGU_PCM_PROBE_ROOT;
-            if (base !== '/var/opt/pllana-airplay-probe-010/runtime') throw Error('invalid_probe_root');
+            if (base !== '/var/opt/base-player-probe-010/runtime') throw Error('invalid_probe_root');
             await wait(300);
             const allChannels = process.env.MGU_PCM_PROBE_ALL_CHANNELS === '1';
             const matrix = '<<' + Array.from({ length: 8 }, (_, i) =>

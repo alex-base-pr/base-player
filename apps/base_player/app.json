@@ -1,10 +1,10 @@
 {
-  "id": "pllana_airplay",
-  "title": "PllanaCast for BMW",
-  "description": "PllanaCast for BMW von Leon Pllana IT-Solutions · pllana.io",
-  "version": "0.6.3",
-  "vendor": "Leon Pllana IT-Solutions",
-  "loggingId": "OAA1",
+  "id": "base_player",
+  "title": "Base Player",
+  "description": "Phone screen and sound on iDrive 7: AirPlay for iPhone, DLNA for Android",
+  "version": "0.2.0",
+  "vendor": "base",
+  "loggingId": "BPL1",
   "maxDiskUsage": 67108864,
   "memoryKB": 196608,
   "iconGlyph": "WEB",
@@ -15,7 +15,7 @@
     }
   },
   "screens": [{
-    "name": "MAIN", "kind": "canvas", "title": "PllanaCast for BMW", "bar": true, "borderless": true,
+    "name": "MAIN", "kind": "canvas", "title": "Base Player", "bar": true, "borderless": true,
     "buttons": [["BTN_START", "Verbinden"], ["BTN_END_VIDEO", "Video beenden"], ["BTN_MIRROR", "Zur Spiegelung"], ["BTN_STOP", "Trennen"], ["BTN_CLOSE", "Schließen"]]
   }],
   "settings": [],

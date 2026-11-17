@@ -3,9 +3,9 @@
 // Miracast needs a Wi-Fi Direct group between phone and head unit. This
 // only reports what the radio and the system wpa_supplicant can do; it never
 // creates interfaces, changes the radio, or touches mgu-uplink/CarPlay.
-// Result: /run/pllana-airplay/p2p.json (0644), shown in the app.
+// Result: /run/base-player/p2p.json (0644), shown in the app.
 const cp = require('child_process'), fs = require('fs'), path = require('path');
-const OUT_DIR = '/run/pllana-airplay', OUT = OUT_DIR + '/p2p.json';
+const OUT_DIR = '/run/base-player', OUT = OUT_DIR + '/p2p.json';
 
 function parseIw(text) {
     const phys = [];

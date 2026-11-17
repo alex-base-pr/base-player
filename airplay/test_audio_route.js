@@ -1,6 +1,6 @@
 'use strict';
 const assert = require('assert');
-const { AudioRoute } = require('../apps/pllana_airplay/audio_route');
+const { AudioRoute } = require('../apps/base_player/audio_route');
 function fixture(existing) {
     let connections = existing || [], next = 100;
     const calls = [];

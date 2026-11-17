@@ -54,7 +54,7 @@ const removal = plan('remove', NaN, installed({}), {});
 assert(removal.length > 0 && removal.every(line => /^delete rule .* handle \d+$/.test(line)), 'remove deletes only tagged handles');
 assert.throws(() => plan('apply', 0, empty(), {}), /invalid_receiver_uid/);
 assert.throws(() => plan('apply', uid, [], {}), /stock_firewall_missing/);
-assert.throws(() => plan('apply', uid, empty().map(c => Object.assign({}, c, { text: 'counter accept comment "mgu-airplay"' })), {}), /nft_rule_handle_missing/);
+assert.throws(() => plan('apply', uid, empty().map(c => Object.assign({}, c, { text: 'counter accept comment "base-player-rt"' })), {}), /nft_rule_handle_missing/);
 
 // The iPhone can be both hotspot gateway and sender. No BMW AP is required:
 // Bonjour must use that exact station lease and the shared daemon's sockets.
@@ -123,7 +123,7 @@ function routingIO() {
         writeFileSync: (fd,text) => { temporary=JSON.parse(text); },
         renameSync: () => { state=temporary; temporary=null; journals.push(state); }, unlinkSync: () => {},
     }, cp: { spawnSync: (binary,args) => {
-        assert(binary.endsWith('/runtime/bin/mgu-airplay-mdns-route'));
+        assert(binary.endsWith('/runtime/bin/base-player-rt-mdns-route'));
         if(args[0]==='show') return {status:0,stdout:JSON.stringify(status(kernel))};
         const rule={uid:Number(args[1]),network:args[2],prefix:Number(args[3])};
         assert(state.rules.some(item=>JSON.stringify(item)===JSON.stringify(rule)),'journal exact ownership before every kernel mutation');
@@ -175,10 +175,10 @@ function supervisor() {
     const child = new EventEmitter(); child.kill = sig => calls.push(['kill', sig]);
     const fakeFs = {
         constants: fs.constants,
-        existsSync: file => file.indexOf('/var/opt/mgu-airplay/') < 0,
+        existsSync: file => file.indexOf('/var/opt/base-player-rt/') < 0,
         openSync: () => 10, closeSync: () => {},
         fstatSync: () => ({ isFile: () => true, uid: 0, nlink: 1, mode: 0o644, size: 100 }),
-        readFileSync: file => typeof file === 'number' ? '13007=pllana_airplay\n' : '{}',
+        readFileSync: file => typeof file === 'number' ? '13007=base_player\n' : '{}',
         mkdirSync: () => {}, chmodSync: () => {}, renameSync: () => {},
         lstatSync: () => ({ isDirectory: () => true, isSymbolicLink: () => false, uid: 0 }),
         writeFileSync: (file, data) => statuses.push(JSON.parse(data)),

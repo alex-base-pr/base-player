@@ -1,7 +1,7 @@
 'use strict';
 const assert = require('assert'), fs = require('fs'), os = require('os'), path = require('path'), vm = require('vm');
 const EventEmitter = require('events');
-const { Receiver } = require('../apps/pllana_airplay/receiver');
+const { Receiver } = require('../apps/base_player/receiver');
 (async () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'airplay-receiver-test-'));
     const calls = [];
@@ -23,7 +23,7 @@ const { Receiver } = require('../apps/pllana_airplay/receiver');
         assert.strictEqual(fs.readFileSync(initialViewport).readUInt32LE(4),720,'unknown canvas defaults to1920x720');
         assert(calls[0].args.includes('-hls'), 'advertise the actual HLS player');
         assert.strictEqual(calls[0].args[calls[0].args.indexOf('-hls') + 1], '2', 'use legacy HLS parser for YouTube codec negotiation');
-        assert.strictEqual(calls[0].args[calls[0].args.indexOf('-n') + 1], 'PllanaCast for BMW');
+        assert.strictEqual(calls[0].args[calls[0].args.indexOf('-n') + 1], 'Base Player');
         assert.strictEqual(calls[0].options.env.MGU_HLS_AUDIO_SINK, 'fakesink');
         assert(!r.start(), 'no overlapping receiver');
         const mac = calls[0].args[calls[0].args.indexOf('-m') + 1];
@@ -332,14 +332,14 @@ const { Receiver } = require('../apps/pllana_airplay/receiver');
         // group must still signal the direct child, and neither error nor
         // SIGKILL dispatch proves that Node has observed actual closure.
         const deadlines=[], signals=[];
-        const isolated={ module:{exports:{}}, Buffer,__dirname:path.join(__dirname,'../apps/pllana_airplay'),
-            require:name=>name==='./audio_metadata'?require('../apps/pllana_airplay/audio_metadata'):require(name),
+        const isolated={ module:{exports:{}}, Buffer,__dirname:path.join(__dirname,'../apps/base_player'),
+            require:name=>name==='./audio_metadata'?require('../apps/base_player/audio_metadata'):require(name),
             process:{env:process.env,pid:process.pid,getuid:()=>process.getuid(),kill:()=>{const error=Error('missing group');error.code='ESRCH';throw error;}},
             setInterval:()=>({}),clearInterval:()=>{},
             setTimeout:(fn,ms)=>{const timer={fn,ms};deadlines.push(timer);return timer;},
             clearTimeout:timer=>{const index=deadlines.indexOf(timer);if(index>=0)deadlines.splice(index,1);},
         };
-        vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../apps/pllana_airplay/receiver.js'),'utf8'),isolated);
+        vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../apps/base_player/receiver.js'),'utf8'),isolated);
         const stuckChild=new EventEmitter(); stuckChild.pid=999999; stuckChild.kill=signal=>signals.push(signal);
         const stuck=new isolated.module.exports.Receiver({dataDir:dir,audioSink:'fakesink',skipRuntimeCheck:true,spawn:()=>stuckChild});
         assert(stuck.start({profile:'video'}));

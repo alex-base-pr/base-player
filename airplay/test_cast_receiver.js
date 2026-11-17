@@ -1,10 +1,10 @@
 'use strict';
-// PllanaCast for BMW receiver: code handshake, limits and session handling with a
+// Base Player receiver: code handshake, limits and session handling with a
 // fake child; with MGU_PLAYER_TEST_RUNTIME also a simulated phone streaming
 // real H.264 and PCM through the native mgu-cast-receiver into shared-memory
 // frames, exactly as the Android app does.
 const assert = require('assert'), net = require('net'), EventEmitter = require('events'), fs = require('fs'), os = require('os'), path = require('path'), cp = require('child_process');
-const { CastReceiver, proof, PROTOCOL } = require('../apps/pllana_airplay/cast_receiver');
+const { CastReceiver, proof, PROTOCOL } = require('../apps/base_player/cast_receiver');
 const wait = ms => new Promise(r => setTimeout(r, ms));
 
 // --- simulated phone (mirrors android/.../CastConnection.java) -------------
@@ -151,5 +151,5 @@ async function native(runtime) {
     await unit();
     if (process.env.MGU_PLAYER_TEST_RUNTIME) await native(process.env.MGU_PLAYER_TEST_RUNTIME);
     else console.log('(native cast check skipped: set MGU_PLAYER_TEST_RUNTIME)');
-    console.log('PllanaCast for BMW receiver: code handshake, limits, sessions' + (process.env.MGU_PLAYER_TEST_RUNTIME ? ' and real H.264/PCM decoding' : '') + ' passed');
+    console.log('Base Player receiver: code handshake, limits, sessions' + (process.env.MGU_PLAYER_TEST_RUNTIME ? ' and real H.264/PCM decoding' : '') + ' passed');
 })().catch(e => { console.error(e); process.exitCode = 1; });

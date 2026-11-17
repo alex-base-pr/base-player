@@ -1,7 +1,7 @@
 'use strict';
 const assert = require('assert'), fs = require('fs'), os = require('os'), path = require('path');
 const EventEmitter = require('events');
-const { AudioMetadata } = require('../apps/pllana_airplay/audio_metadata');
+const { AudioMetadata } = require('../apps/base_player/audio_metadata');
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'airplay-metadata-test-'));
 const sessions = [];
 function session(options) {

@@ -1,7 +1,7 @@
 'use strict';
 // DLNA/UPnP MediaRenderer over real HTTP on loopback with a fake native player.
 const assert = require('assert'), http = require('http'), EventEmitter = require('events'), fs = require('fs'), os = require('os'), path = require('path');
-const { DlnaRenderer, clock, parseClock, privatePeer, scpd, didl } = require('../apps/pllana_airplay/dlna_renderer');
+const { DlnaRenderer, clock, parseClock, privatePeer, scpd, didl } = require('../apps/base_player/dlna_renderer');
 
 class FakePlayer extends EventEmitter {
     constructor() { super(); this.commands = []; this.child = null; this.state = { state: 'stopped', media: null, position: 0, duration: -1, frame: null, file: '', error: null }; }
@@ -75,7 +75,7 @@ const value = (body, name) => { const m = new RegExp('<' + name + '>([\\s\\S]*?)
     // Description and service descriptions.
     const description = await request(port, 'GET', '/dlna/description.xml');
     assert.strictEqual(description.status, 200);
-    assert(/<friendlyName>PllanaCast for BMW<\/friendlyName>/.test(description.body) && /MediaRenderer:1/.test(description.body));
+    assert(/<friendlyName>Base Player<\/friendlyName>/.test(description.body) && /MediaRenderer:1/.test(description.body));
     assert(/<modelNumber>9\.9\.9<\/modelNumber>/.test(description.body));
     for (const service of ['AVTransport', 'RenderingControl', 'ConnectionManager'])
         assert.strictEqual((await request(port, 'GET', '/dlna/' + service + '.xml')).status, 200);

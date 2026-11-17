@@ -1,6 +1,6 @@
 'use strict';
 const assert = require('assert'), fs = require('fs'), os = require('os'), path = require('path');
-const { inspectBmwContracts, inspectBmwMedia, loadBmwCatalog, reportFromCatalog, saveBmwMediaReport, CATALOG, MAINAPP, KNOWN } = require('../apps/pllana_airplay/bmw_media');
+const { inspectBmwContracts, inspectBmwMedia, loadBmwCatalog, reportFromCatalog, saveBmwMediaReport, CATALOG, MAINAPP, KNOWN } = require('../apps/base_player/bmw_media');
 function directories(directory) {
     if (fs.existsSync(directory)) return;
     directories(path.dirname(directory)); fs.mkdirSync(directory, 0o700);
@@ -56,10 +56,10 @@ try {
     const saved = saveBmwMediaReport(directory, actual);
     assert.strictEqual(fs.statSync(saved).mode & 0o777, 0o600);
     assert.strictEqual(JSON.parse(fs.readFileSync(saved, 'utf8')).integration.mediaProvider, false);
-    const summary = require('../apps/pllana_airplay/inspect_bmw_contracts').run(['--root',directory,'--output-dir',directory]);
+    const summary = require('../apps/base_player/inspect_bmw_contracts').run(['--root',directory,'--output-dir',directory]);
     assert.strictEqual(summary.supported,false); assert.strictEqual(summary.candidateCount,2);
     assert.strictEqual(JSON.parse(fs.readFileSync(saved,'utf8')).focus.supported,false);
-    assert.throws(()=>require('../apps/pllana_airplay/inspect_bmw_contracts').run([]), /private_output_directory_required/);
+    assert.throws(()=>require('../apps/base_player/inspect_bmw_contracts').run([]), /private_output_directory_required/);
     fs.unlinkSync(saved); fs.symlinkSync(catalog, saved);
     assert.throws(()=>saveBmwMediaReport(directory, actual), /invalid_media_report_file/); fs.unlinkSync(saved);
     fs.chmodSync(directory, 0o755);

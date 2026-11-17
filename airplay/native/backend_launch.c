@@ -28,7 +28,7 @@ int main(int argc, char **argv) {
         if (mount(NULL, "/", NULL, MS_REC | MS_PRIVATE, NULL)) { perror("AirPlay namespace propagation"); return 73; }
         /* Open after unshare: an fd on the parent's mount cannot be used as a
            bind source through /proc/self/fd in the new mount namespace. */
-        int fd = open("/run/mgu-airplay/resolv.conf", O_RDONLY | O_NOFOLLOW | O_CLOEXEC);
+        int fd = open("/run/base-player-rt/resolv.conf", O_RDONLY | O_NOFOLLOW | O_CLOEXEC);
         struct stat st;
         if (fd < 0 || fstat(fd, &st) || !S_ISREG(st.st_mode) || st.st_uid != uid || st.st_nlink != 1 || st.st_size > 4096) {
             perror("AirPlay private resolver"); return 72;

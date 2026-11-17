@@ -1,8 +1,8 @@
 'use strict';
 const assert = require('assert'), fs = require('fs'), os = require('os'), path = require('path');
 const cp = require('child_process');
-const { inspectFocusCapabilities, INTERFACES } = require('../apps/pllana_airplay/carplay_focus');
-const { loadBmwCatalog } = require('../apps/pllana_airplay/bmw_media');
+const { inspectFocusCapabilities, INTERFACES } = require('../apps/base_player/carplay_focus');
+const { loadBmwCatalog } = require('../apps/base_player/bmw_media');
 const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'airplay-focus-inspect-'));
 const file = path.join(directory, 'catalog.json');
 const presentation = 'de.bmw.fixture.DevicePresentation';

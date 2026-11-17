@@ -1,6 +1,6 @@
 'use strict';
 const assert = require('assert');
-const { drawHome } = require('../apps/pllana_airplay/view');
+const { drawHome } = require('../apps/base_player/view');
 const targets = [], labels = [], actions = [];
 const c = { clear() {}, gradientRect() {}, image() {}, roundRect() {}, strokeRoundRect() {}, circle() {}, line() {},fillRect(){},quad(){},card(){},
     text: value => labels.push(value), target: (x, y, w, h, run, key) => targets.push({ run, key }) };

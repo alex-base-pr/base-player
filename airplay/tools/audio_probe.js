@@ -50,7 +50,7 @@ async function main() {
         await wait(1400);
         console.log(JSON.stringify({ focus_available: focus.isAvailable(), player_available: player.isAvailable() }));
         if (!focus.isAvailable() || !player.isAvailable()) return;
-        const grant = await tick(() => focus.callMethod('getAudioFocus', { clientId: 'pllana_airplay_probe', clientName: 'AirPlay', timeOutHeartBeatTimer: 5000 }, 3000));
+        const grant = await tick(() => focus.callMethod('getAudioFocus', { clientId: 'base_player_probe', clientName: 'AirPlay', timeOutHeartBeatTimer: 5000 }, 3000));
         token = grant.token;
         console.log(JSON.stringify({ focus_error: grant.err, token_received: !!token }));
         if (!token || (grant.err !== 'OK' && grant.err !== 0)) return;

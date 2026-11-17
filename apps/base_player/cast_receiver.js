@@ -1,5 +1,5 @@
 'use strict';
-// Receiver for the PllanaCast for BMW Android app: the phone's screen (H.264) and
+// Receiver for the Base Player Android app: the phone's screen (H.264) and
 // sound (PCM) over the local WLAN or the phone hotspot, for Android phones
 // without Miracast/DLNA mirroring (e.g. Pixel, where "Cast" is Google Cast).
 //
@@ -17,7 +17,7 @@ const path = require('path');
 const { frameHeader } = require('./receiver');
 const { privatePeer } = require('./dlna_renderer');
 
-const PORT = 7104, PROTOCOL = 'pllana-cast/1';
+const PORT = 7104, PROTOCOL = 'base-cast/1';
 const HANDSHAKE_MS = 15000, IDLE_MS = 10000, MAX_FAILURES = 5, FAILURE_WINDOW_MS = 60000;
 
 function proof(code, nonce) { return crypto.createHmac('sha256', String(code)).update(nonce).digest('hex'); }
@@ -35,7 +35,7 @@ class CastReceiver extends EventEmitter {
         this.dataDir = this.options.dataDir;
         this.port = this.options.port === undefined ? PORT : this.options.port;
         this.code = this.options.code || (() => '');
-        this.name = this.options.name || 'PllanaCast for BMW';
+        this.name = this.options.name || 'Base Player';
         this.server = null; this.running = false; this.session = null; this.serial = 0; this.failures = new Map();
     }
     available() {

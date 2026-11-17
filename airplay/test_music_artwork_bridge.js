@@ -3,11 +3,11 @@ const assert = require('assert'), fs = require('fs'), os = require('os'), path =
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'airplay-artwork-'));
 const images = new Map(), messages = [];
 const moduleShim = { exports: {} };
-vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../apps/pllana_airplay/music_artwork_bridge.js'), 'utf8'), {
+vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../apps/base_player/music_artwork_bridge.js'), 'utf8'), {
     require: name => name === './kit/record' ? { imageById: images, setImage: (id, w, h, data) => {
         const im = { w, h, data, ver: (images.get(id) || { ver: 0 }).ver + 1 }; images.set(id, im); return im;
     } } :
-        name === './video_bridge' ? require('../apps/pllana_airplay/video_bridge') : require(name),
+        name === './video_bridge' ? require('../apps/base_player/video_bridge') : require(name),
     module: moduleShim, Buffer, process
 });
 const { MusicArtworkBridge, ID } = moduleShim.exports;

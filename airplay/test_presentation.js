@@ -2,7 +2,7 @@
 const assert = require('assert');
 const path = require('path');
 // Run after build_app.py; this exercises the privately patched SDK copy.
-const kit = process.env.MGU_PRESENTATION_KIT || path.resolve(__dirname, '../dist/pllana_airplay/source/javascript/kit');
+const kit = process.env.MGU_PRESENTATION_KIT || path.resolve(__dirname, '../dist/base_player/source/javascript/kit');
 const { Display } = require(path.join(kit, 'display'));
 const d = Object.create(Display.prototype);
 Object.assign(d, { gpu: { ready: true, native: true, screen: { w: 1920, h: 504 }, place: p => { d.sent = p; } },

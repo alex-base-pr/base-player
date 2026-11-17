@@ -1,7 +1,7 @@
 'use strict';
 // Exercise the real private decoder and descriptor-anchored artwork reader.
 const assert = require('assert'), cp = require('child_process'), fs = require('fs'), os = require('os'), path = require('path');
-const { AudioMetadata } = require('../apps/pllana_airplay/audio_metadata');
+const { AudioMetadata } = require('../apps/base_player/audio_metadata');
 const runtime = path.resolve(__dirname, '../.build/airplay/runtime');
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mgu-artwork-runtime-'));
 const sessions = [];

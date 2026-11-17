@@ -12,13 +12,13 @@ sys.path.insert(0, str(ROOT / 'tools'))
 from vehicle import connect
 
 record = json.loads((ROOT / 'dist/airplay-build-provenance.json').read_text())
-artifact = ROOT / ('dist/pllana_airplay@' + record['version'] + '.mgu')
+artifact = ROOT / ('dist/base_player@' + record['version'] + '.mgu')
 if hashlib.sha256(artifact.read_bytes()).hexdigest() != record['app_sha256']:
     raise SystemExit('build_manifest_mismatch')
 remote = connect()
-created = subprocess.run(remote.command + ['umask 077; mktemp -d /var/opt/pllana-airplay-stage-XXXXXX'], capture_output=True, timeout=12)
+created = subprocess.run(remote.command + ['umask 077; mktemp -d /var/opt/base-player-stage-XXXXXX'], capture_output=True, timeout=12)
 stage = created.stdout.decode().strip()
-if created.returncode or not re.fullmatch('/var/opt/pllana-airplay-stage-[A-Za-z0-9]{6}', stage):
+if created.returncode or not re.fullmatch('/var/opt/base-player-stage-[A-Za-z0-9]{6}', stage):
     raise SystemExit('private_staging_failed')
 target = stage + '/' + artifact.name
 print('Transfer small OAP package:', artifact.stat().st_size, 'bytes', flush=True)
@@ -44,7 +44,7 @@ for action in ['check', 'install'] if '--install' in sys.argv else ['check']:
         raise SystemExit(code)
     state['status'] = action + '_passed'; state_file.write_text(json.dumps(state, indent=2))
 if '--install' in sys.argv:
-    query = 'const f=require("fs"),p="/var/opt/public/oap/oap_12201/data/apps/pllana_airplay.json",r=JSON.parse(f.readFileSync(p,"utf8"));console.log(JSON.stringify({uid:r.userId}));'
+    query = 'const f=require("fs"),p="/var/opt/public/oap/oap_12201/data/apps/base_player.json",r=JSON.parse(f.readFileSync(p,"utf8"));console.log(JSON.stringify({uid:r.userId}));'
     result = subprocess.run(remote.command + ['exec /usr/bin/node -e ' + shlex.quote(query)], capture_output=True, timeout=12)
     if result.returncode:
         raise SystemExit('cannot_read_installed_app_uid')

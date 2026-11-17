@@ -3,13 +3,13 @@
 // WLAN ranges and fixed receiver ports plus app-owned local DACP TCP egress;
 // no table flush/policies or forwarded traffic.
 const cp = require('child_process'), os = require('os'), fs = require('fs'), path = require('path'), crypto = require('crypto');
-const tag = 'mgu-airplay';
+const tag = 'base-player-rt';
 // wlan_bridge is the BMW access point. wlan0 and wlan1 are the two supported
 // station backends of mgu-uplink. USB uplinks need no inbound AirPlay rules:
 // the phone can use the BMW AP while the app downloads via the USB uplink.
 const WLAN = ['wlan_bridge', 'wlan0', 'wlan1'];
-const MDNS_HELPER = path.join(__dirname, 'runtime/bin/mgu-airplay-mdns-route');
-const MDNS_STATE = '/run/mgu-airplay/mdns-routes.json';
+const MDNS_HELPER = path.join(__dirname, 'runtime/bin/base-player-rt-mdns-route');
+const MDNS_STATE = '/run/base-player-rt/mdns-routes.json';
 const chains = [
     ['ip', 'filter', 'highprioinput'], ['ip', 'filter', 'highpriooutput'],
     ['ip6', 'filter', 'highprioinput'], ['ip6', 'filter', 'highpriooutput'],
@@ -64,7 +64,7 @@ function desiredRules(chain, uid, interfaces, discovery) {
     const output = /output$/.test(chain[2]), result = [];
     for (const n of networks(interfaces)) for (const protocol of ['tcp', 'udp']) {
         if (chain[0] !== 'inet' && chain[0] !== n.family) continue;
-        // 7100-7102 AirPlay, 7103 DLNA renderer, 7104 PllanaCast for BMW (Android screen).
+        // 7100-7102 AirPlay, 7103 DLNA renderer, 7104 Base Player (Android screen).
         const rule = output ? 'oifname "' + n.name + '" ' + n.family + ' daddr ' + n.prefix + ' meta skuid ' + uid + ' ' + protocol + ' sport 7100-7104' :
             'iifname "' + n.name + '" ' + n.family + ' saddr ' + n.prefix + ' ' + protocol + ' dport 7100-7104';
         result.push(rule + ' counter accept comment "' + tag + '"');
@@ -307,7 +307,7 @@ function reconcileMdnsRoutes(discovery, io) {
     writeRouteState(wanted, io);
 }
 function prepareResolver(uid) {
-    const dir = '/run/mgu-airplay';
+    const dir = '/run/base-player-rt';
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, 0o755);
     const directory = fs.lstatSync(dir);
     if (!directory.isDirectory() || directory.isSymbolicLink() || directory.uid !== 0 || (directory.mode & 0o022))
@@ -346,7 +346,7 @@ function main(action, uid) {
     if (commands.length) {
         // Old nft reopens /dev/stdin, which cannot reopen Node's socket-backed
         // stdin. Use a private regular file for the checked atomic batch.
-        const dir = fs.mkdtempSync('/run/mgu-airplay-net-'), file = path.join(dir, 'rules.nft');
+        const dir = fs.mkdtempSync('/run/base-player-rt-net-'), file = path.join(dir, 'rules.nft');
         try {
             fs.writeFileSync(file, commands.join('\n') + '\n', { mode: 0o600, flag: 'wx' });
             nft(['-c', '-f', file]);

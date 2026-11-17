@@ -30,14 +30,14 @@ shutil.copytree(SDK / 'kit', kit)
 render, display = configure_kit(kit)
 build.KIT, build.SDK = str(kit), str(SDK / 'oap-sdk')
 build.APPS, build.DIST = str(ROOT / 'apps'), str(ROOT / 'dist')
-build.build('pllana_airplay')
-stage = ROOT / 'dist/pllana_airplay'
+build.build('base_player')
+stage = ROOT / 'dist/base_player'
 runtime = ROOT / '.build/airplay/runtime'
 if not (runtime / 'plugins/libgstautodetect.so').is_file():
     raise RuntimeError('Rebuild runtime including UxPlay required autodetect plugin')
 # Runtime is installed as a separate versioned tool. Keep the package handled
 # by BMW MainApp small; loading a 100 MB OAP archive would burden its heap.
-version = json.loads((ROOT / 'apps/pllana_airplay/app.json').read_text())['version']
+version = json.loads((ROOT / 'apps/base_player/app.json').read_text())['version']
 
 
 def modes(info):
@@ -47,19 +47,19 @@ def modes(info):
     return info
 
 
-bundle = ROOT / ('dist/pllana_airplay@' + version + '.mgu')
+bundle = ROOT / ('dist/base_player@' + version + '.mgu')
 with tarfile.open(bundle, 'w:gz', compresslevel=1) as archive:
     for name in ['meta.json', 'source', 'rhmiData', 'oapgen']:
         archive.add(stage / name, arcname=name, filter=modes)
-npm = ROOT / ('dist/pllana_airplay@' + version + '.tgz')
+npm = ROOT / ('dist/base_player@' + version + '.tgz')
 with tarfile.open(npm, 'w:gz', compresslevel=1) as archive:
     archive.add(stage / 'source', arcname='package', filter=modes)
 sha = lambda p: hashlib.sha256(p.read_bytes()).hexdigest()
 record = {
-    'id': 'pllana_airplay', 'version': version, 'hardware_qualified': False,
+    'id': 'base_player', 'version': version, 'hardware_qualified': False,
     'pcm_root_test_verified': True, 'drm_supported': False,
     'app_sha256': sha(bundle), 'runtime_manifest_sha256': sha(runtime / 'build-manifest.json'),
-    'sources': {p.name: sha(p) for p in (ROOT / 'apps/pllana_airplay').glob('*') if p.is_file()},
+    'sources': {p.name: sha(p) for p in (ROOT / 'apps/base_player').glob('*') if p.is_file()},
     'sdk_index_sha256': sha(SDK / 'oap-sdk/index.js'),
     'sdk_render_patch_sha256': sha(render),
     'sdk_display_patch_sha256': sha(display),
