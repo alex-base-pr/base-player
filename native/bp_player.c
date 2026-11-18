@@ -214,6 +214,14 @@ int main(int argc, char **argv) {
     if (!s.playbin || !video) { emit("error", bp_error_name(BP_ERR_MEDIA_FAILED)); return 69; }
     g_object_set(s.playbin, "video-sink", video, NULL);
     if (no_audio) g_object_set(s.playbin, "audio-sink", gst_element_factory_make("fakesink", NULL), NULL);
+    /* BP_CA_FILE: trust exactly these roots, as the runtime does with its own
+       store (tests use a private PKI). Before attaching: the policy wraps it. */
+    if (g_getenv("BP_CA_FILE")) {
+        GTlsDatabase *roots = g_tls_file_database_new(g_getenv("BP_CA_FILE"), NULL);
+        if (!roots) { emit("error", bp_error_name(BP_ERR_MEDIA_FAILED)); return 69; }
+        g_tls_backend_set_default_database(g_tls_backend_get_default(), roots);
+        g_object_unref(roots);
+    }
     bp_tls_attach(&s.tls, s.playbin);
 
     GstBus *bus = gst_element_get_bus(s.playbin);

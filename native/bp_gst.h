@@ -13,6 +13,9 @@ typedef struct {
     gint unsupported;   /* atomic: a source offered none of the hooks below */
     GMutex lock;
     gchar *last_remote; /* under lock: last non-loopback http(s) URL a source was given */
+    /* Optional: called once per load, from a streaming thread, the first time
+       a certificate is accepted despite its dates. Set before attaching. */
+    void (*on_date_tolerated)(void);
 } BpTls;
 
 /* Watch `pipeline` (a playbin, or any bin) and put every network source it

@@ -25,7 +25,7 @@ G_STATIC_ASSERT((int)BP_TLS_VALIDATE_ALL == (int)G_TLS_CERTIFICATE_VALIDATE_ALL)
 static gboolean tls_decide(BpTls *tls, GTlsCertificateFlags errors) {
     if (!errors) return TRUE;
     if (bp_tls_accept((unsigned)errors, g_atomic_int_get(&tls->tolerate_date))) {
-        g_atomic_int_set(&tls->tolerated, 1);
+        if (g_atomic_int_compare_and_exchange(&tls->tolerated, 0, 1) && tls->on_date_tolerated) tls->on_date_tolerated();
         return TRUE;
     }
     g_atomic_int_or(&tls->seen_flags, (guint)errors);

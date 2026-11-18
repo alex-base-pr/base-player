@@ -55,4 +55,8 @@ try {
 for (const file of ['receiver.js', 'media_player.js'])
     assert(/BP_CERT_DATE_TOLERANCE: certDateTolerance\(this\.dataDir\) \? '1' : '0'/.test(fs.readFileSync(path.join(__dirname, '../apps/base_player', file), 'utf8')), file);
 assert(/g_getenv\("BP_CERT_DATE_TOLERANCE"\)/.test(fs.readFileSync(path.join(__dirname, 'native/mgu_hls_output.h'), 'utf8')));
+// A tolerated date is said once, as a diagnostic (the log), by both paths.
+for (const file of ['receiver.js', 'media_player.js'])
+    assert(/line === 'MGU_TLS_DATE_TOLERATED'\) this\.emit\('diagnostic', 'tls_date_tolerated'\)/.test(fs.readFileSync(path.join(__dirname, '../apps/base_player', file), 'utf8')), file);
+assert(/MGU_TLS_DATE_TOLERATED/.test(fs.readFileSync(path.join(__dirname, 'native/mgu_hls_output.h'), 'utf8')));
 console.log('Base Player error causes, strings and certificate-date setting passed');

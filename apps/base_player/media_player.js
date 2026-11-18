@@ -119,6 +119,7 @@ class MediaPlayer extends EventEmitter {
         if (media) { this.update({ media: media[1] }); return; }
         const position = /^MGU_PLAYER position ([0-9]{1,12}) (-1|[0-9]{1,12})$/.exec(line);
         if (position) { this.state.position = Number(position[1]) / 1000; this.state.duration = position[2] === '-1' ? -1 : Number(position[2]) / 1000; this.emit('position'); return; }
+        if (line === 'MGU_TLS_DATE_TOLERATED') this.emit('diagnostic', 'tls_date_tolerated');
         const error = /^MGU_PLAYER error ([a-z_]{1,32})$/.exec(line);
         if (error) { this.update({ error: 'player_' + error[1] }); this.emit('diagnostic', 'player_' + error[1]); }
     }

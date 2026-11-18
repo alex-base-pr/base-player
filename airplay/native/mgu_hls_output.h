@@ -77,6 +77,9 @@ static void mgu_hls_viewport_free(gpointer data) {
 #include "bp_gst.c"
 static BpTls mgu_bp_tls;
 
+/* As mgu-updater does for its downloads: say once that dates were let go. */
+static void mgu_bp_date_tolerated(void) { g_print("MGU_TLS_DATE_TOLERATED\n"); fflush(stdout); }
+
 /* Wire name of the cause of a bus error on `player` (bp_error.h). */
 G_GNUC_UNUSED static const char *mgu_bp_error(GstMessage *message, GstElement *player) {
     gchar *uri = NULL;
@@ -100,6 +103,7 @@ static void mgu_hls_output(GstElement *player) {
     /* After the store above is the default: the policy wraps that database. */
     bp_tls_reset(&mgu_bp_tls);
     bp_tls_set_tolerate_date(&mgu_bp_tls, g_strcmp0(g_getenv("BP_CERT_DATE_TOLERANCE"), "1") == 0);
+    mgu_bp_tls.on_date_tolerated = mgu_bp_date_tolerated;
     bp_tls_attach(&mgu_bp_tls, player);
     GstElement *audio = gst_parse_bin_from_description(description, TRUE, &error);
     if (error || !audio) g_error("MGU HLS audio pipeline could not be created");

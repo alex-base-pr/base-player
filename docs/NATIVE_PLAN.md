@@ -89,6 +89,10 @@ the host probe uses the last remote URL a source was given, not playbin's URI.
 - `make -C native test` — classifier and policy (plain cc).
 - `make -C native test-gst` — hook 1 on `rtspsrc`.
 - `node tests/test_app.js` — codes <-> strings <-> error screen.
+- `node tests/test_cert_dates.js` — a private PKI (after mgu-updater's
+  `test_certs.js`): expired and not-yet-valid certificates pass only with the
+  setting on; a wrong host, an untrusted root or a self-signed certificate is
+  refused even when its dates fail too. Hooks 2 and 3, 36 cases.
 - `node tests/e2e_player.js` — live: badssl.com expired / wrong.host /
   self-signed / untrusted-root, a host that does not exist, a refused
   connection, a 404; hooks 2 and 3.
