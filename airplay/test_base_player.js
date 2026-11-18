@@ -17,9 +17,15 @@ assert.strictEqual(mediaError('player_certificate'), 'certificate');
 assert.strictEqual(mediaError('player_network_failed'), 'media_failed', 'the old catch-all code is no longer a cause');
 assert.strictEqual(mediaError(undefined), 'media_failed');
 
-// Strings stay inside the baked atlas (ASCII, the German letters, a few symbols).
-for (const key of Object.keys(STRINGS.en))
-    assert(!/[^\x20-\x7eäöüÄÖÜß„“…–·]/.test(STRINGS.en[key]), 'glyph outside the atlas in ' + key);
+// The baked atlas: every interface string in both languages can be drawn,
+// and so can what a phone sends as a track or film title in Ukrainian.
+const atlas = JSON.parse(fs.readFileSync(path.join(__dirname, '../assets/fonts/airplay.json'), 'utf8'));
+const drawable = text => atlas.sizes.every(size => Array.from(text).every(ch => size.glyphs[ch.codePointAt(0)]));
+for (const lang of Object.keys(STRINGS)) for (const key of Object.keys(STRINGS[lang]))
+    assert(drawable(STRINGS[lang][key]), 'glyph outside the atlas in ' + lang + ':' + key);
+for (const sample of ['\u0407\u0436\u0430\u043a \u0491\u0430\u043d\u043e\u043a \u0404\u0432\u0430 \u0406\u0440\u0430', '\u0401\u0436\u0438\u043a \u2116 2 \u00ab\u0421\u0435\u0437\u043e\u043d\u00bb \u2019', 'Bj\u00f6rk Caf\u00e9 \u0141\u00f3d\u017a', '\u201eGru\u00df\u201c \u2026'])
+    assert(drawable(sample), 'atlas cannot draw ' + sample);
+assert(atlas.cacheKey && atlas.cacheKey !== 'de-1', 'a new glyph set needs a new cache key');
 
 // The home screen shows the cause for each code, and nothing of the old brand.
 function labels(state, notice) {

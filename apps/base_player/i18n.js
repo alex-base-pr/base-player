@@ -3,10 +3,10 @@
  * English is the default and the fallback. t(key) returns the string for the
  * current language; t.set('en'|'uk') switches.
  *
- * On the head unit only English is used: the baked font atlas has Latin
- * glyphs. Ukrainian is here for the emulator and for the day the atlas is
- * baked with Cyrillic; keys it lacks fall back to English.
- * Strings stay within the atlas: ASCII plus … – · and the German letters. */
+ * The head unit shows English. The baked atlas (assets/fonts, made by
+ * airplay/tools/bake_atlas.py) covers Latin and Cyrillic, so titles a phone
+ * sends in Ukrainian are drawn; the Ukrainian strings here are partial and
+ * fall back to English, and are used by the emulator. */
 
 const STRINGS = {
     en: {
