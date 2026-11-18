@@ -36,8 +36,8 @@ Not yet installed on a head unit. Checked on a development machine:
   HTTPS hosts (19 cases) pass on the host build;
 - the emulator renders every scene (`node emulator/selfcheck.js`, 40/40).
 
-The complete runtime (UxPlay, GStreamer, the tool package) is built and
-tested by GitHub Actions; that workflow has not run in this repository yet.
+The complete runtime (UxPlay, GStreamer, the tool package) is built, tested
+and released by GitHub Actions; see the repository's Releases.
 
 Limits carried over from the original, unchanged: AirPlay works only while
 CarPlay is disconnected in iDrive (the app never stops or controls CarPlay);

@@ -17,9 +17,7 @@ has no release yet publishes release `v<version>` and then updates the
 
 1. The workflow must have run once on `main`, so that the releases exist.
    Check the repository's Releases page for `v<version>` and `catalog`.
-2. The Store needs a GitHub token for this repository, because it is private
-   (the Store's installer has a `token` command; its Settings have "Accounts").
-3. From the Store's own sources the head unit needs `mgu-uplink`, `mgu-render`
+2. From the Store's own sources the head unit needs `mgu-uplink`, `mgu-render`
    and `mgu-deploy`; the catalog asks for them and the Store installs them
    first.
 
@@ -53,15 +51,11 @@ versions are never overwritten.
 
 ## Verified, and not
 
-Verified on a development machine: the JavaScript tests, the build of the two
-changed native sources, the YAML and the catalog script's syntax.
+Verified: the workflow builds, tests and publishes both packages (releases
+`v0.2.0`, `v0.2.1`); the catalog and both packages download without a token
+and match the sizes and SHA-256 the catalog lists.
 
 Not verified:
 
-- **the workflow itself in this repository** — the full runtime build, the
-  native tests and the Store's package validation run only there;
-- **the catalog for a private repository** — the publish job writes the
-  assets' API URLs into it, as the Store's documentation requires; this path
-  was written from that documentation and has not run;
 - **anything on a head unit**: install, the receiver starting, pairing, video,
   sound, the six-button bar and the settings screen.
