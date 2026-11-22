@@ -1,5 +1,13 @@
 # Connection, network and YouTube: findings and plan
 
+> **Corrected by [ARCHITECTURE_RESEARCH.md](ARCHITECTURE_RESEARCH.md)
+> (November 2026):** on this car wireless CarPlay and the same iPhone's
+> Personal Hotspot work at the same time (mgu-uplink keeps `wlan0` joined
+> on 2.4 GHz, it only limits scanning during CarPlay); hotspot discovery
+> still exists in `airplay/network.js` (only the 0.4.8 own responder was
+> reverted); a phone in CarPlay has a second path to the receiver through
+> the hotspot link, so answering on `p2p-*` is dropped from the plan.
+
 November 2026, after 0.3.0. From three read-only reviews of the code, the
 original project's documentation (`docs/upstream/`), the MGU Store sources and
 public material. Nothing here has been measured on the car yet; items marked
