@@ -11,18 +11,20 @@ function save(dataDir, settings) {
     try {
         try { fs.mkdirSync(dataDir, 0o700); } catch (e) { if (e.code !== 'EEXIST') throw e; }
         const file = path.join(dataDir, NAME), tmp = file + '.' + process.pid;
-        fs.writeFileSync(tmp, JSON.stringify({ certDateTolerance: settings.certDateTolerance === true }) + '\n', { mode: 0o600 });
+        fs.writeFileSync(tmp, JSON.stringify({ certDateTolerance: settings.certDateTolerance === true, webTv: settings.webTv === true }) + '\n', { mode: 0o600 });
         fs.renameSync(tmp, file);
         return true;
     } catch (e) { return false; }
 }
 
 /* Off unless the file clearly says otherwise. */
-function certDateTolerance(dataDir, io) {
+function flag(dataDir, key, io) {
     try {
         const text = (io || fs).readFileSync(path.join(dataDir, NAME), 'utf8');
-        return text.length < 4096 && JSON.parse(text).certDateTolerance === true;
+        return text.length < 4096 && JSON.parse(text)[key] === true;
     } catch (e) { return false; }
 }
+const certDateTolerance = (dataDir, io) => flag(dataDir, 'certDateTolerance', io);
+const webTv = (dataDir, io) => flag(dataDir, 'webTv', io);
 
-module.exports = { save, certDateTolerance, NAME };
+module.exports = { save, certDateTolerance, webTv, NAME };

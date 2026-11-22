@@ -352,6 +352,28 @@ const STRINGS = {
         p2p_concurrent: 'Miracast pre-check: Wi-Fi Direct works beside the hotspot',
         p2p_exclusive: 'Miracast pre-check: Wi-Fi Direct only without the hotspot',
         p2p_unsupported: 'Miracast pre-check: Wi-Fi chip without Wi-Fi Direct',
+
+        // Web TV (experimental, optional package)
+        status_webtv: 'Web TV',
+        webtv_title: 'Web TV',
+        webtv_experimental: 'Experimental',
+        webtv_entry_sub: 'Experimental · YouTube for TV',
+        webtv_loading: 'Opening Web TV …',
+        webtv_waiting_picture: 'Waiting for the picture …',
+        webtv_loading_sub: 'Needs internet on the head unit.',
+        webtv_controls: 'Controller',
+        webtv_turn: 'Turn', webtv_turn_do: 'Up / down',
+        webtv_push: 'Push', webtv_push_do: 'Move in that direction',
+        webtv_press: 'Press', webtv_press_do: 'Select',
+        webtv_hold: 'Hold left', webtv_hold_do: 'Back',
+        webtv_back: 'BACK button', webtv_back_do: 'Close Web TV',
+        webtv_unavailable: 'Web TV is not available yet.',
+        key_Up: 'Up', key_Down: 'Down', key_Left: 'Left', key_Right: 'Right', key_Enter: 'OK', key_Back: 'Back',
+        err_title_webtv: 'Web TV problem',
+        err_webtv: 'Web TV reported a problem. Choose Web TV again.',
+        err_webtv_failed: 'Web TV stopped unexpectedly. Choose Web TV again.',
+        err_webtv_missing: 'The Web TV package is missing. Install "Base Player Web TV" in the Store.',
+        err_webtv_unavailable: 'Web TV is turned off in Settings or not installed.',
     },
     uk: {
         status_disconnecting: 'Від’єднуємо …',
@@ -449,7 +471,8 @@ __def("view", function(module, exports, require){
  * drawHome(c, state, notice, logo, artwork, onControl, onButton)
  *   c         kit canvas (docs: apps/base_player/kit/canvas.js), page 1600 x H
  *   onControl music action ('previous', 'playPause', 'next', 'shuffle', 'repeat')
- *   onButton  presses a bar button by id ('BTN_START', 'BTN_SETTINGS'); optional
+ *   onButton  presses a bar button by id ('BTN_START', 'BTN_SETTINGS'), or 'WEBTV'; optional
+ *   state.webTv  the frontend sets it when Web TV is turned on and installed
  */
 const { ID: LOGO } = require('./brand_logo');
 const { t, MEDIA_ERRORS } = require('./i18n');
@@ -547,6 +570,13 @@ const icon = {
             c.quad([p(r * 0.55, -w), p(r * 0.98, -w * 0.8), p(r * 0.98, w * 0.8), p(r * 0.55, w)], col);
         }
     },
+    tv(c, x, y, s, col) {
+        // a wide screen on a short stand
+        c.strokeRoundRect(x - s * 0.48, y - s * 0.36, s * 0.96, s * 0.60, s * 0.05, STROKE, col);
+        c.line(x - s * 0.10, y + s * 0.24, x - s * 0.16, y + s * 0.38, STROKE, col);
+        c.line(x + s * 0.10, y + s * 0.24, x + s * 0.16, y + s * 0.38, STROKE, col);
+        c.line(x - s * 0.24, y + s * 0.38, x + s * 0.24, y + s * 0.38, STROKE, col);
+    },
     alert(c, x, y, s, col) {
         c.quad([[x, y - s * 0.46], [x + s * 0.5, y + s * 0.40], [x - s * 0.5, y + s * 0.40]], col);
         c.roundRect(x - s * 0.05, y - s * 0.18, s * 0.10, s * 0.32, s * 0.04, C.bg);
@@ -630,17 +660,48 @@ function drawReady(c, state, busy, onButton, failure) {
     text(c, t('hero_sub'), X0, 182, 24, C.dim);
     if (failure) problem(c, failure.title, failure.cause, failure.tip);
     else stepRows(c, [t('step_carplay'), t('step_wifi'), t('step_connect')], 214);
-    tile(c, 1000, 96, 560, 364);
+    // Web TV (setting on and package installed) shares the right column:
+    // Connect stays the primary panel, Web TV a quieter one under it.
+    const tv = state.webTv === true, h = tv ? 262 : 364, k = h / 364;
+    tile(c, 1000, 96, 560, h);
+    if (tv) {
+        tile(c, 1000, 374, 560, 86);
+        icon.tv(c, 1052, 420, 52, busy ? C.off : C.mLight);
+        label(c, t('webtv_title'), 1100, 416, 24, busy ? C.dim : C.ink);
+        text(c, t('webtv_entry_sub'), 1100, 446, 20, C.dim);
+        if (!busy && onButton && c.target) c.target(1000, 374, 560, 86, () => onButton('WEBTV'), 'webtv', 0);
+    }
     if (busy) {
-        icon.airplay(c, 1280, 236, 96, C.off);
-        label(c, t('preparing'), 1280, 352, 22, C.dim, { align: 'center' });
+        icon.airplay(c, 1280, 96 + 140 * k, 96 * k, C.off);
+        label(c, t('preparing'), 1280, 96 + 256 * k, 22, C.dim, { align: 'center' });
         return;
     }
-    selected(c, 1000, 102, 560, 358);
-    icon.airplay(c, 1280, 228, 104, C.ink);
-    label(c, t('btn_start'), 1280, 346, 40, C.ink, { align: 'center', spacing: 4 });
-    text(c, t('connect_sub'), 1280, 390, 24, C.sub, { align: 'center' });
-    if (onButton && c.target) c.target(1000, 96, 560, 364, () => onButton('BTN_START'), 'connect', 0);
+    selected(c, 1000, 102, 560, h - 6);
+    icon.airplay(c, 1280, 96 + 132 * k, 104 * k, C.ink);
+    label(c, t('btn_start'), 1280, 96 + 250 * k + (tv ? 8 : 0), tv ? 36 : 40, C.ink, { align: 'center', spacing: 4 });
+    text(c, t('connect_sub'), 1280, 96 + 294 * k + (tv ? 12 : 0), 24, C.sub, { align: 'center' });
+    if (onButton && c.target) c.target(1000, 96, 560, h, () => onButton('BTN_START'), 'connect', 0);
+}
+function drawWebTv(c, state, failure) {
+    // Shown until the first picture arrives; then the video is fullscreen.
+    text(c, t('webtv_title'), X0, 140, 40, C.ink, { font: 'bold' });
+    label(c, t('webtv_experimental'), X0, 182, 20, C.mLight);
+    if (failure) problem(c, failure.title, failure.cause, failure.tip);
+    else {
+        const ready = state.webTvPhase === 'ready' || state.webTvPhase === 'playing';
+        tile(c, X0, 214, 920, 246);
+        icon.tv(c, X0 + 110, 340, 120, C.mLight);
+        text(c, ready ? t('webtv_waiting_picture') : t('webtv_loading'), X0 + 220, 326, 30, C.ink, { font: 'bold' });
+        text(c, fit(c, t('webtv_loading_sub'), 24, 680), X0 + 220, 368, 24, C.sub);
+    }
+    tile(c, 1000, 96, 560, 364, t('webtv_controls'));
+    [['webtv_turn', 'webtv_turn_do'], ['webtv_push', 'webtv_push_do'], ['webtv_press', 'webtv_press_do'],
+        ['webtv_hold', 'webtv_hold_do'], ['webtv_back', 'webtv_back_do']].forEach((row, i) => {
+        const y = 166 + i * 58;
+        label(c, t(row[0]), 1018, y + 30, 18, C.dim);
+        text(c, fit(c, t(row[1]), 24, 340), 1200, y + 32, 24, C.ink);
+        c.fillRect(1018, y + 50, 524, 1, C.hair);
+    });
 }
 function drawPairing(c, state, failure) {
     text(c, t('pair_title'), X0, 140, 40, C.ink, { font: 'bold' });
@@ -740,21 +801,24 @@ function drawHome(c, state, notice, logo, artwork, onControl, onButton) {
     const loading = state.phase === 'loading';
     const busy = state.phase === 'starting' || state.phase === 'stopping' || state.phase === 'recovering';
     const connected = state.connected === true, android = state.sender === 'android';
-    const status = state.phase === 'stopping' ? t('status_disconnecting') : connected ? (android ? t('status_android') : t('status_iphone'))
+    const webTv = state.mode === 'webtv';
+    const status = webTv ? t('status_webtv') : state.phase === 'stopping' ? t('status_disconnecting') : connected ? (android ? t('status_android') : t('status_iphone'))
         : state.phase === 'error' ? t('status_check') : busy || loading ? t('status_wait') : state.pin ? t('status_ready') : t('status_off');
-    const statusColor = connected ? C.mLight : state.phase === 'error' || state.error ? C.amber : state.pin ? '#ffffff' : C.dim;
+    const statusColor = connected || webTv ? C.mLight : state.phase === 'error' || state.error ? C.amber : state.pin ? '#ffffff' : C.dim;
     header(c, state, status, statusColor, logo, onButton);
 
     // The reason something failed, and what to do about it.
     const errText = code => { const key = 'err_' + code; return code && t(key) !== key ? t(key) : ''; };
     const code = state.viewportError || state.error;
-    const failure = errText(code) ? {
+    const webTvFailure = webTv && code ? { title: t('err_title_webtv'), cause: errText(code) || t('err_webtv'), tip: '' } : null;
+    const failure = webTvFailure || errText(code) ? webTvFailure || {
         title: MEDIA_ERRORS.indexOf(code) >= 0 || code === 'media_unsupported' ? t('err_title') : t('err_title_connection'),
         cause: errText(code),
         tip: MEDIA_ERRORS.indexOf(code) >= 0 && code !== 'media_failed' ? t('err_try_mirror') : '',
     } : null;
 
-    if (audioOnly) drawMusic(c, state, artwork, onControl);
+    if (webTv) drawWebTv(c, state, failure);
+    else if (audioOnly) drawMusic(c, state, artwork, onControl);
     else if (connected) drawConnected(c, state, android, failure);
     else if (state.pin) drawPairing(c, state, failure);
     else drawReady(c, state, busy, onButton, failure);
@@ -763,9 +827,10 @@ function drawHome(c, state, notice, logo, artwork, onControl, onButton) {
     const controlCodes = ['music_control_failed', 'music_control_busy', 'music_control_stale'];
     const controlError = audioOnly && state.music && controlCodes.indexOf(state.music.controlError) >= 0 && errText(state.music.controlError);
     const musicFailure = audioOnly && failure ? failure.cause : '';
-    const foot = notice || musicFailure || controlError || (state.audioError ? t('audio_error') : '') || (!connected && state.p2pText) || '';
+    const webTvEnded = state.webTv === true && !webTv && state.webTvError ? errText(state.webTvError) || t('err_webtv') : '';
+    const foot = notice || musicFailure || controlError || webTvEnded || (state.audioError ? t('audio_error') : '') || (!connected && state.p2pText) || '';
     if (foot) {
-        const warn = !!(notice || musicFailure || controlError || state.audioError);
+        const warn = !!(notice || musicFailure || controlError || webTvEnded || state.audioError);
         c.circle(X0 + 6, 497, 5, warn ? C.amber : C.dim);
         text(c, fit(c, foot, 22, 1480), X0 + 22, 505, 22, warn ? C.amberText : C.dim);
     }
@@ -791,6 +856,9 @@ module.exports = [
   { name: 'Video loading', state: { phase: 'loading', mode: 'hls', connected: true } },
   { name: 'Error: certificate / clock', state: { phase: 'waiting', mode: 'waiting', connected: true, error: 'certificate' } },
   { name: 'Error: no internet', state: { phase: 'waiting', mode: 'waiting', pin: '5691', error: 'offline' } },
+  { name: 'Ready, Web TV on', state: { phase: 'idle', webTv: true, webTvAvailable: true } },
+  { name: 'Web TV loading', state: { phase: 'loading', mode: 'webtv', webTvPhase: 'loading', webTv: true, webTvAvailable: true } },
+  { name: 'Web TV error', state: { phase: 'loading', mode: 'webtv', webTvPhase: 'loading', error: 'webtv_network', webTv: true, webTvAvailable: true } },
   { name: 'Receiver missing', state: { phase: 'idle' }, notice: 'Receiver is missing: install "Base Player receiver" in the Store from the "Releases" source.' },
 ];
 

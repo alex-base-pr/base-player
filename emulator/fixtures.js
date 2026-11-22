@@ -15,5 +15,8 @@ module.exports = [
   { name: 'Video loading', state: { phase: 'loading', mode: 'hls', connected: true } },
   { name: 'Error: certificate / clock', state: { phase: 'waiting', mode: 'waiting', connected: true, error: 'certificate' } },
   { name: 'Error: no internet', state: { phase: 'waiting', mode: 'waiting', pin: '5691', error: 'offline' } },
+  { name: 'Ready, Web TV on', state: { phase: 'idle', webTv: true, webTvAvailable: true } },
+  { name: 'Web TV loading', state: { phase: 'loading', mode: 'webtv', webTvPhase: 'loading', webTv: true, webTvAvailable: true } },
+  { name: 'Web TV error', state: { phase: 'loading', mode: 'webtv', webTvPhase: 'loading', error: 'webtv_network', webTv: true, webTvAvailable: true } },
   { name: 'Receiver missing', state: { phase: 'idle' }, notice: 'Receiver is missing: install "Base Player receiver" in the Store from the "Releases" source.' },
 ];

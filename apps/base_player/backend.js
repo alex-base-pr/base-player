@@ -29,6 +29,12 @@ const player = new MediaPlayer({ runtime: receiver.runtime, dataDir: data, audio
 const { CastReceiver, PORT: CAST_PORT } = require('./cast_receiver');
 const screenCast = new CastReceiver({ runtime: receiver.runtime, dataDir: data, audioSink: AUDIO_SINK, code: () => receiver.state.pin || receiver.lastPassword });
 const dlna = new DlnaRenderer({ player, dataDir: data, castPort: CAST_PORT });
+// Experimental Web TV (optional base-player-webtv package): a full-screen
+// web app with its own process, started from the Ready screen.
+const { WebTv, KEYS: WEB_TV_KEYS } = require('./web_tv');
+const appSettings = require('./app_settings');
+const webTv = new WebTv({ runtime: receiver.runtime, dataDir: data, audioSink: AUDIO_SINK });
+let webTvInstalled = webTv.available();
 const castPresentation = () => (wanted ? dlna.presentation() : null);
 const mirrorPresentation = () => (wanted ? screenCast.presentation() : null);
 const music = new MusicControls({
@@ -147,7 +153,14 @@ const persistsWithoutUI = () => selectedProfile === 'audio' || (selectedProfile 
 // The state the frontend sees: an active Android (DLNA) playback takes the
 // screen and the music view; otherwise the AirPlay receiver's own state.
 function presented() {
-    const base = receiver.state, mirror = mirrorPresentation();
+    return Object.assign(presentedMedia(), { webTvAvailable: webTvInstalled });
+}
+function presentedMedia() {
+    const base = receiver.state, tv = webTv.presentation();
+    if (tv) return Object.assign({}, base, { connected: false, sender: 'webtv', origin: 'webtv', mode: 'webtv',
+        phase: tv.frame ? 'mirroring' : 'loading', webTvPhase: tv.phase, file: tv.file, frame: tv.frame, returnMode: 'waiting',
+        playlistPending: false, detached: false, music: null, pin: '', error: tv.error });
+    const mirror = mirrorPresentation();
     if (mirror) return Object.assign({}, base, { connected: true, sender: 'android', origin: 'android', mode: 'mirror',
         phase: mirror.frame ? 'mirroring' : 'loading', file: mirror.file, frame: mirror.frame, returnMode: 'waiting', playlistPending: false,
         detached: false, music: null, error: null, device: mirror.device });
@@ -163,17 +176,20 @@ function presented() {
         returnMode: base.mode === 'mirror' ? 'mirror' : 'waiting', music: null });
     return Object.assign({}, base, fields);
 }
+// Web TV takes the speakers once it plays, with or without a receiver.
+const webTvAudio = () => !!webTv.child && webTv.state.phase === 'playing';
+const receiving = () => wanted && !!receiver.child;
 async function ensureAudio() {
-    if (!wanted || !receiver.child || (!client && !persistsWithoutUI()) || shuttingDown || intentionalStop || route.owned) return;
+    if ((!webTvAudio() && (!receiving() || (!client && !persistsWithoutUI()))) || shuttingDown || intentionalStop || route.owned) return;
     const epoch = operationEpoch;
     try {
         await route.acquire();
         // Explicit stop can overtake an in-flight BMW audio acquisition.
         // Release any late grant before acknowledging that stop.
-        if (epoch !== operationEpoch || !wanted || !receiver.child || intentionalStop) { await route.release(); return; }
+        if (epoch !== operationEpoch || !(receiving() || webTvAudio()) || intentionalStop) { await route.release(); return; }
         receiver.update({ audio: true, audioError: null });
     } catch (e) {
-        if (epoch === operationEpoch && wanted && receiver.child) receiver.update({ audio: false, audioError: 'audio_unavailable' });
+        if (epoch === operationEpoch && (receiving() || webTvAudio())) receiver.update({ audio: false, audioError: 'audio_unavailable' });
     }
 }
 receiver.on('media', () => enqueue(ensureAudio));
@@ -203,7 +219,7 @@ async function finishStop(priorOperations) {
         // request is still pending in the ordinary operation queue.
         const native = Promise.resolve().then(() => receiver.stop()).then(() => null, error => error);
         // Android playback ends with the session; never blocks the stop.
-        const cast = Promise.resolve().then(() => Promise.all([dlna.stop(), screenCast.stop()])).then(() => player.close()).catch(() => {});
+        const cast = Promise.resolve().then(() => Promise.all([dlna.stop(), screenCast.stop(), webTv.close()])).then(() => player.close()).catch(() => {});
         const cleanup = Promise.resolve(priorOperations).then(() => route.release()).then(() => null, error => error);
         const results = await Promise.all([native, cleanup, cast]);
         if (!results[1]) receiver.update({ audio: false });
@@ -292,6 +308,17 @@ const androidState = () => {
     graceWithoutUI(); send(presented());
 };
 dlna.on('state', androidState);
+let webTvAudioPending = false;
+webTv.on('diagnostic', code => receiver.emit('diagnostic', code));
+webTv.on('state', state => {
+    if (state.phase === 'playing' && webTv.child && !route.owned && !webTvAudioPending) {
+        webTvAudioPending = true;
+        enqueue(() => { webTvAudioPending = false; return ensureAudio(); });
+    }
+    send(presented());
+});
+// Without a receiver session nothing else needs the speakers.
+webTv.on('exit', () => { if (!receiving() && !intentionalStop) enqueue(() => receiving() || webTvAudio() ? null : route.release().then(() => receiver.update({ audio: false }))); });
 screenCast.on('state', androidState);
 receiver.on('ended', () => {
     if (intentionalStop) return;
@@ -361,6 +388,16 @@ const server = net.createServer(s => {
             }
             else if (request.command === 'end-video') { if (mirrorPresentation()) screenCast.stopSession(); else if (castPresentation()) dlna.stopPlayback(false); else receiver.endVideo(); }
             else if (request.command === 'resume-mirror') { if (mirrorPresentation()) screenCast.stopSession(); else if (castPresentation()) dlna.stopPlayback(false); else receiver.resumeMirror(); }
+            else if (request.command === 'webtv-start') {
+                if (shuttingDown) {}
+                else if (!webTvInstalled || !appSettings.webTv(data)) webTv.update({ phase: 'stopped', frame: null, file: '', error: 'webtv_unavailable' });
+                else webTv.start();
+            }
+            else if (request.command === 'webtv-key') {
+                if (WEB_TV_KEYS.indexOf(request.key) < 0) { s.destroy(); return; }
+                webTv.key(request.key);
+            }
+            else if (request.command === 'webtv-stop') webTv.close().catch(() => {});
             else if (request.command === 'music-control') {
                 if (!musicRequest(request)) { s.destroy(); return; }
                 const cast = castPresentation();
@@ -378,6 +415,7 @@ const server = net.createServer(s => {
     s.on('close', () => {
         if (client !== s) return;
         client = null;
+        webTv.close().catch(() => {}); // Web TV has no use without its screen
         if (!receiver.child && !restartTimer && !intentionalStop) { priorityStop().catch(() => {}); return; }
         graceWithoutUI();
     });
@@ -399,6 +437,8 @@ const timer = setInterval(() => {
         return;
     }
     if (client && Date.now() - heartbeat > HEARTBEAT_TIMEOUT_MS) client.destroy();
+    const installed = webTv.available();
+    if (installed !== webTvInstalled) { webTvInstalled = installed; send(); }
     pollMusic();
     if (receiver.child && !checking && !shuttingDown) {
         checking = true;

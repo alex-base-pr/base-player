@@ -20,7 +20,8 @@ mgu.run({ async start(ctx) {
     const artwork = new MusicArtworkBridge(ctx.display, path.join(ctx.dataDir, 'airplay'));
     // The backend reads this when it starts a receiver or a player, so a
     // change applies from the next "Connect".
-    const shareSettings = () => appSettings.save(path.join(ctx.dataDir, 'airplay'), { certDateTolerance: ctx.settings.get('certDateTolerance') === true });
+    const shareSettings = () => appSettings.save(path.join(ctx.dataDir, 'airplay'), {
+        certDateTolerance: ctx.settings.get('certDateTolerance') === true, webTv: ctx.settings.get('webTv') === true });
     shareSettings();
     if (ctx.settings.onChange) ctx.settings.onChange(shareSettings);
     let state = receiver.state, notice = '', closing = false, controlsUntil = 0, diagnosis = '', diagnosedAt = 0;
@@ -30,6 +31,7 @@ mgu.run({ async start(ctx) {
     // the HMI does (for Settings: the kit's sheet over the page, else the
     // HMI's settings list).
     const press = id => {
+        if (id === 'WEBTV') { startWebTv(); return; }
         if (ctx.display && typeof ctx.display._click === 'function') ctx.display._click(id);
         else if (id === 'BTN_SETTINGS' && ui.open) ui.open('SETTINGS');
     };
@@ -44,11 +46,46 @@ mgu.run({ async start(ctx) {
         controlsUntil = Date.now() + 8000;
         ctx.display.setPresentation(false);
     };
+    // Experimental Web TV: its setting is listed only while the optional
+    // package is installed; the entry is on the Ready screen.
+    const webTvSetting = ctx.settings.item && ctx.settings.item('webTv');
+    const webTvOn = () => ctx.settings.get('webTv') === true && state.webTvAvailable === true;
+    let webTvRequested = false, lastKey = '', keyCount = 0, keyAt = 0;
+    const startWebTv = () => {
+        if (disconnecting) return;
+        controlsUntil = 0;
+        webTvRequested = webTvOn() && receiver.webTvStart();
+        notice = webTvRequested ? '' : t('webtv_unavailable');
+    };
+    const stopWebTv = () => { webTvRequested = false; return receiver.webTvStop(); };
+    // Fullscreen Web TV gets the controller: turn up/down, push arrows,
+    // press OK, a long push left is Back (the HMI keeps the BACK button).
+    const TILT_KEYS = { N: 'Up', S: 'Down', E: 'Right', W: 'Left' }, LONG_LEFT = 11;
+    ctx.display.onPresentationKey = input => {
+        if (state.mode !== 'webtv') return false;
+        const keys = [], turns = Math.min(8, Math.abs(input.d || 0));
+        for (let i = 0; i < turns; i++) keys.push(input.d > 0 ? 'Down' : 'Up');
+        if (input.press) keys.push('Enter');
+        if (input.df === LONG_LEFT && input.last !== LONG_LEFT) keys.push('Back');
+        else if (TILT_KEYS[input.tilt]) keys.push(TILT_KEYS[input.tilt]);
+        keys.forEach(key => receiver.webTvKey(key));
+        if (keys.length) { lastKey = keys[keys.length - 1]; keyCount++; keyAt = Date.now(); }
+        return true;
+    };
+    // A small mark per key: the renderer takes input away from an app whose
+    // picture stays the same after several inputs.
+    const drawKey = (c, w) => {
+        if (!lastKey || Date.now() - keyAt > 1500) return;
+        c.fillRect(w - 196 + (keyCount & 1) * 4, 24, 160, 52, '#04060acc');
+        c.fillRect(w - 196 + (keyCount & 1) * 4, 72, 160, 4, '#ef2b2d');
+        c.text(t('key_' + lastKey), w - 116 + (keyCount & 1) * 4, 60, 26, '#f4f7fb', { font: 'airplay', align: 'center' });
+    };
     receiver.on('state', next => {
         if (next.mode === 'waiting' && next.returnMode === 'mirror' &&
             (state.mode !== 'waiting' || state.returnMode !== 'mirror')) mirrorResumeUntil = Date.now() + 5000;
         if (isAudio(next) || next.returnMode !== 'mirror' || next.frame) mirrorResumeUntil = 0;
         state = next;
+        if (webTvSetting) webTvSetting.hidden = next.webTvAvailable !== true;
         artwork.update(isAudio(state) && state.music && state.music.artwork, state.music && state.music.epoch);
         if (!state.frame || isAudio(state)) video.detach();
         if (state.error) log.warn('AirPlay: ' + state.error);
@@ -58,6 +95,7 @@ mgu.run({ async start(ctx) {
         notice = receiver.start('auto', screenViewport()) ? '' : (diagnose(uid) || t('starting'));
     });
     ui.onClick('BTN_END_VIDEO', () => {
+        if (state.mode === 'webtv') { stopWebTv(); notice = ''; return; }
         if (state.mode === 'hls' || state.phase === 'loading' || state.playlistPending)
             notice = receiver.endVideo() ? '' : t('video_ctl_unavailable');
         else notice = t('no_video');
@@ -102,6 +140,8 @@ mgu.run({ async start(ctx) {
     ui.onVisible((name, on) => {
         if (name !== 'MAIN') return;
         if (on) closing = false;
+        // BACK on the controller leaves the app view: Web TV ends with it.
+        else if (webTvRequested || state.mode === 'webtv') stopWebTv();
         log.info('AirPlay view: ' + (on ? 'visible' : 'hidden'));
     });
     if (ui.onFocus) ui.onFocus((name, on) => {
@@ -116,7 +156,7 @@ mgu.run({ async start(ctx) {
     // picked up within ~100 ms. The video itself is drawn by the native
     // renderer, so this only re-records a small canvas.
     ctx.loop('MAIN', 10, async () => {
-        const transitioning = !isAudio(state) && (state.phase === 'loading' ||
+        const transitioning = !isAudio(state) && state.mode !== 'webtv' && (state.phase === 'loading' ||
             (state.mode === 'waiting' && state.returnMode === 'mirror' && !!state.pin && !state.error &&
                 !state.playlistPending && Date.now() < mirrorResumeUntil));
         const fullscreen = !isAudio(state) && (!!state.frame || transitioning) && Date.now() >= controlsUntil && video.ready();
@@ -133,6 +173,7 @@ mgu.run({ async start(ctx) {
             c.clear('#000000');
             // The native output follows this exact viewport in both axes.
             video.draw(c, 0, 0, size.w, size.h, state.frame, state.mode === 'hls' ? 'stretch' : 'contain');
+            if (state.mode === 'webtv') drawKey(c, size.w);
         } else if (transitioning || resizing) {
             c.clear('#000000');
             logo.draw(c, size.w / 2 - 32, size.h / 2 - 70, 64, 64);
@@ -144,7 +185,7 @@ mgu.run({ async start(ctx) {
             if (!unreachable()) diagnosis = '';
             else if (Date.now() - diagnosedAt > 2000) { diagnosedAt = Date.now(); diagnosis = diagnose(uid); }
             if (Date.now() - p2pAt > 10000) { p2pAt = Date.now(); p2pText = wifiDirect(); }
-            drawHome(c, p2pText ? Object.assign({}, state, { p2pText }) : state, notice || diagnosis, logo, artwork, musicControl, press);
+            drawHome(c, Object.assign({}, state, p2pText ? { p2pText } : {}, { webTv: webTvOn() }), notice || diagnosis, logo, artwork, musicControl, press);
         }
         if (!closing) await ui.image('MAIN_GFX', c);
     });

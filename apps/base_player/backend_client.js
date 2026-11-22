@@ -1,5 +1,6 @@
 'use strict';
 const EventEmitter = require('events'), net = require('net');
+const WEB_TV_KEYS = ['Up', 'Down', 'Left', 'Right', 'Enter', 'Back'];
 function validVideoViewport(width, height) {
     return Number.isInteger(width) && Number.isInteger(height) && width >= 16 && height >= 16 &&
         width <= 2048 && height <= 2048 && !(width & 1) && !(height & 1) && width * height <= 2048 * 1080;
@@ -110,6 +111,10 @@ class BackendClient extends EventEmitter {
         return this.command('end-video');
     }
     resumeMirror() { return this.command('resume-mirror'); }
+    // Experimental Web TV: the backend checks the package and the setting.
+    webTvStart() { return this.command('webtv-start'); }
+    webTvKey(key) { return WEB_TV_KEYS.indexOf(key) >= 0 && this.command('webtv-key', { key }); }
+    webTvStop() { return this.command('webtv-stop'); }
     finishStop(error) {
         const request = this.stopRequest;
         if (!request) return;

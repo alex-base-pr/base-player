@@ -28,9 +28,9 @@ vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../apps/base_player/main
     process:{on:(name,fn)=>{signals[name]=fn;},getuid:()=>12233,exit(){}},Date:{now:()=>clock},Promise,console
 });
 // The certificate-date setting reaches the backend through the shared data folder, off by default.
-assert.strictEqual(JSON.stringify(sharedSettings),JSON.stringify([['/app/data/airplay',{certDateTolerance:false}]]));
+assert.strictEqual(JSON.stringify(sharedSettings),JSON.stringify([['/app/data/airplay',{certDateTolerance:false,webTv:false}]]));
 settingValues.certDateTolerance=true;settingsChanged();
-assert.strictEqual(JSON.stringify(sharedSettings[1]),JSON.stringify(['/app/data/airplay',{certDateTolerance:true}]));
+assert.strictEqual(JSON.stringify(sharedSettings[1]),JSON.stringify(['/app/data/airplay',{certDateTolerance:true,webTv:false}]));
 Promise.resolve(started).then(async()=>{
     clicks.BTN_START();assert.strictEqual(receiver.starts,1);
     assert.deepStrictEqual(profiles,['auto']);

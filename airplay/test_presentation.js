@@ -19,6 +19,18 @@ d._touch(3, 100, 100); assert.strictEqual(input, 1, 'touch restores controls wit
 d.ccuLast = { k: 0, pb: 0, df: 0 };
 d._ccu({ frontRotaryEncoderOperation: 1, frontRotaryEncoderPushButton: 0, frontRotaryEncoderDeflection: 0 });
 assert.strictEqual(input, 2, 'controller restores controls without forwarding hidden input');
+// Web TV takes the controller while fullscreen: the hook sees every event,
+// a long push (df 11 after 10) included; it returns false for other video.
+const keys = [];
+d.onPresentationKey = k => { keys.push(k); return k.df !== 0 || k.press; };
+d._ccu({ frontRotaryEncoderOperation: 1, frontRotaryEncoderPushButton: 1, frontRotaryEncoderDeflection: 0 });
+d._ccu({ frontRotaryEncoderOperation: 1, frontRotaryEncoderPushButton: 0, frontRotaryEncoderDeflection: 10 });
+d._ccu({ frontRotaryEncoderOperation: 1, frontRotaryEncoderPushButton: 0, frontRotaryEncoderDeflection: 11 });
+assert.strictEqual(input, 2, 'consumed keys do not restore the controls');
+assert.deepStrictEqual(keys.map(k => [k.d, k.press, k.tilt, k.df, k.last]), [[0, true, null, 0, 0], [0, false, 'W', 10, 0], [0, false, null, 11, 10]]);
+d._ccu({ frontRotaryEncoderOperation: 2, frontRotaryEncoderPushButton: 0, frontRotaryEncoderDeflection: 0 });
+assert.strictEqual(input, 3, 'an unconsumed event keeps the old behaviour');
+delete d.onPresentationKey;
 d.setPresentation(false); assert.deepStrictEqual(d.sent, normal, 'normal layout is restored');
 d.gpu.screen = { w: 1920, h: 720 };
 d.setPresentation(true);

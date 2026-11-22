@@ -1,7 +1,7 @@
 'use strict';
 const assert = require('assert'), vm = require('vm'), fs = require('fs'), EventEmitter = require('events');
 const sockets = [], writes = [], timers = [], startupOrder = [], reports = [], persisted = [];
-let receiver, route, accept, remote, player, dlna, screen, uplinkOnline = false;
+let receiver, route, accept, remote, player, dlna, screen, webTv, webTvSetting = false, uplinkOnline = false;
 class Receiver extends EventEmitter {
     constructor(options) { super(); receiver = this; this.runtime = options.runtime; this.musicDirectory = ''; this.options = options; this.state = {}; this.child = null; this.starts = 0; this.stops = 0; }
     start(options) { startupOrder.push('start'); this.child = {}; this.features = {}; this.starts++; this.lastOptions = options; const profile=options && options.profile || 'auto'; this.musicDirectory='/private/music-'+this.starts; this.update({phase:'waiting', profile, mode:profile==='audio'?'audio':'waiting', connected:false,playlistPending:false,returnMode:'waiting',frame:null,music:{title:'',epoch:null,controls:{}},error:null}); this.emit('music-directory',this.musicDirectory); return true; }
@@ -36,7 +36,14 @@ const fakeFs = {existsSync:()=>true,lstatSync:()=>({isSocket:()=>true,uid:12233}
 const modules = {
     './resolver':{refresh:()=>startupOrder.push('dns'),hasUplink:()=>uplinkOnline},fs:fakeFs,path:require('path'),'./receiver':{Receiver,validVideoViewport:require('../apps/base_player/receiver').validVideoViewport},
     './audio_route':{AudioRoute,AUDIO_SINK:'fakesink'},'./kit/signals':{},
-    './music_controls':{MusicControls},'./i18n':require('../apps/base_player/i18n'),
+    './music_controls':{MusicControls},
+    './app_settings':{webTv:()=>webTvSetting},
+    './web_tv':{KEYS:['Up','Down','Left','Right','Enter','Back'],WebTv:class extends EventEmitter{constructor(o){super();webTv=this;this.options=o;this.child=null;this.installed=false;this.starts=0;this.closes=0;this.keys=[];this.state={phase:'stopped',frame:null,file:'',error:null};}
+        available(){return this.installed;}presentation(){return this.child?Object.assign({},this.state):null;}
+        update(f){Object.assign(this.state,f);this.emit('state',Object.assign({},this.state));}
+        start(){this.starts++;this.child={};this.update({phase:'loading',frame:null,file:'',error:null});return true;}
+        key(k){this.keys.push(k);return true;}
+        close(){this.closes++;if(!this.child)return Promise.resolve();this.child=null;this.update({phase:'stopped',frame:null,file:''});this.emit('exit');return Promise.resolve();}}},'./i18n':require('../apps/base_player/i18n'),
     './media_player':{MediaPlayer:class extends EventEmitter{constructor(o){super();player=this;this.options=o;this.state={state:'stopped'};this.closed=0;}setViewport(w,h){this.viewport={width:w,height:h};return true;}close(){this.closed++;return Promise.resolve();}stop(){}}},
     './cast_receiver':{PORT:7104,CastReceiver:class extends EventEmitter{constructor(o){super();screen=this;this.options=o;this.running=false;this.mirror=null;this.ended=0;}
         start(){this.running=true;return Promise.resolve();}stop(){this.running=false;this.mirror=null;return Promise.resolve();}
@@ -421,5 +428,43 @@ const turn = () => new Promise(resolve=>setImmediate(resolve));
     const dlnaStops=dlna.stops;
     finalReportUI.emit('data','{"command":"stop"}\n'); await turn(); await turn();
     assert.strictEqual(dlna.stops,dlnaStops+1,'Trennen also ends the Android renderer');
+    // Experimental Web TV: optional package, hidden setting, own process.
+    runBackend();
+    const tvWrites=[], tvUI=new EventEmitter(); tvUI.destroyed=false; tvUI.writableLength=0;
+    tvUI.setEncoding=()=>{}; tvUI.write=data=>tvWrites.push(JSON.parse(data).state); tvUI.destroy=()=>{tvUI.destroyed=true;tvUI.emit('close');};
+    const lastTv=()=>tvWrites[tvWrites.length-1];
+    accept(tvUI);
+    assert.strictEqual(lastTv().webTvAvailable,false,'every state says whether the Web TV package is installed');
+    webTvSetting=true; tvUI.emit('data','{"command":"webtv-start"}\n');
+    assert.strictEqual(webTv.starts,0,'no package, no Web TV process');
+    assert.strictEqual(webTv.state.error,'webtv_unavailable');
+    webTv.installed=true; timers[timers.length-1](); await turn();
+    assert.strictEqual(lastTv().webTvAvailable,true,'a newly installed package is reported without a restart');
+    webTvSetting=false; tvUI.emit('data','{"command":"webtv-start"}\n');
+    assert.strictEqual(webTv.starts,0,'the setting must be on as well');
+    webTvSetting=true; tvUI.emit('data','{"command":"webtv-start"}\n');
+    assert.strictEqual(webTv.starts,1);
+    assert.strictEqual(lastTv().mode,'webtv'); assert.strictEqual(lastTv().phase,'loading'); assert.strictEqual(lastTv().webTvPhase,'loading');
+    assert.strictEqual(lastTv().sender,'webtv'); assert.strictEqual(lastTv().frame,null);
+    webTv.update({frame:{sequence:1,width:1280,height:720,generation:'1:2'},file:'/dev/shm/mgu-video-webtv-12233'});
+    assert.strictEqual(lastTv().phase,'mirroring','the first frame makes it fullscreen video');
+    assert.strictEqual(lastTv().file,'/dev/shm/mgu-video-webtv-12233');
+    tvUI.emit('data','{"command":"webtv-key","key":"Up"}\n{"command":"webtv-key","key":"Enter"}\n');
+    assert.deepStrictEqual(webTv.keys,['Up','Enter']);
+    assert(!receiver.child && !route.owned);
+    route.available=true; webTv.update({phase:'playing'}); await turn(); await turn();
+    assert(route.owned,'Web TV takes the BMW audio route without an AirPlay receiver');
+    assert.strictEqual(lastTv().audio,true);
+    tvUI.emit('data','{"command":"webtv-stop"}\n'); await turn(); await turn();
+    assert.strictEqual(webTv.closes,1); assert(!webTv.child);
+    assert(!route.owned,'stopping Web TV gives the speakers back');
+    assert.notStrictEqual(lastTv().mode,'webtv');
+    tvUI.emit('data','{"command":"webtv-start"}\n'); assert(webTv.child);
+    tvUI.emit('data','{"command":"stop","id":"tv-stop"}\n'); await turn(); await turn();
+    assert(!webTv.child,'Disconnect also ends Web TV'); assert.strictEqual(webTv.closes,2);
+    tvUI.emit('data','{"command":"webtv-start"}\n'); assert(webTv.child);
+    tvUI.emit('data','{"command":"webtv-key","key":"Escape"}\n');
+    assert(tvUI.destroyed,'keys outside the list end the connection');
+    assert(!webTv.child,'Web TV ends with its screen'); assert.deepStrictEqual(webTv.keys,['Up','Enter']);
     console.log('Busy audio startup, media reacquisition, focus loss, crash recovery, frontend grace and explicit stop passed');
 })().catch(e=>{console.error(e);process.exitCode=1;});

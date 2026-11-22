@@ -31,6 +31,7 @@ def patch_display(text):
     replace("this.gpu.claim([{ x: hx, y: 0, w: this.headEnd - hx, h: this.headH() }, { x: hx, y: this.headH(), w: W - hx, h: pl.h - this.headH() }].map(logical));",
             "this.gpu.claim([{ x: hx, y: 0, w: this.headEnd - hx, h: this.headH() }, { x: 0, y: this.headH(), w: W, h: pl.h - this.headH() }].map(logical));")
     replace('        const tl = this._tabList(), here = Math.max(0, tl.sel >= 0 ? tl.sel : tl.settings);', '''        if (this.presentation) {
+            if (this.onPresentationKey && this.onPresentationKey({ d, press, tilt, df, last: L ? L.df : 0 })) return;
             if ((d || press || tilt) && this.onPresentationInput) this.onPresentationInput();
             return;
         }

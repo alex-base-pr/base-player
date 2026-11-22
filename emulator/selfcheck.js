@@ -53,6 +53,12 @@ console.log(`selfcheck: ${noThrow}/${total} renders did not throw ` +
     `rich (>20 calls) fixtures per lang: en=${richByLang.en}, uk=${richByLang.uk}`);
 
 let failed = false;
+// The Web TV entry appears on the Ready screen only when the frontend turns it on.
+const targets = state => { const c = stubCanvas(1600, 520); drawHome(c, state, '', null, null, () => {}, () => {}); return c._targets.map(x => x.id); };
+if (targets({ phase: 'idle' }).indexOf('webtv') >= 0 || targets({ phase: 'idle', webTv: true }).indexOf('webtv') < 0 ||
+    targets({ phase: 'idle', webTv: true }).indexOf('connect') < 0) {
+    console.error('SELFCHECK FAILED: Web TV entry visibility'); failed = true;
+}
 if (throws) { console.error('SELFCHECK FAILED:', throws, 'renders threw'); failed = true; }
 if (richByLang.en < 3 || richByLang.uk < 3) {
     console.error('SELFCHECK FAILED: fewer than 3 rich fixtures in some language'); failed = true;

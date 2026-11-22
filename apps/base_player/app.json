@@ -19,7 +19,8 @@
     "buttons": [["BTN_START", "Connect"], ["BTN_END_VIDEO", "Stop video"], ["BTN_MIRROR", "To mirroring"], ["BTN_STOP", "Disconnect"], ["BTN_SETTINGS", "Settings"], ["BTN_CLOSE", "Close"]]
   }],
   "settings": [
-    { "key": "certDateTolerance", "label": "Ignore certificate dates (wrong car clock)", "type": "bool", "default": false }
+    { "key": "certDateTolerance", "label": "Ignore certificate dates (wrong car clock)", "type": "bool", "default": false },
+    { "key": "webTv", "label": "Web TV (experimental)", "type": "bool", "default": false, "hidden": true }
   ],
   "config": {}
 }
