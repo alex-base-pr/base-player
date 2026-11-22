@@ -42,7 +42,7 @@ for (const name of names) {
 }
 assert(labels({ phase: 'waiting', error: 'something_new' }).every(s => !/undefined|err_/.test(s)), 'an unknown code shows no raw key');
 assert(labels({ phase: 'idle' }).every(s => !/pllana/i.test(s)));
-assert(labels({ phase: 'idle' }).includes('Base Player'));
+assert(labels({ phase: 'idle' }).some(s => s.toUpperCase() === 'BASE PLAYER'), 'the app name is in the header');
 
 // Settings is reachable: drawn in the header with a touch target when the
 // frontend passes the action, and listed before Close so the HMI's own

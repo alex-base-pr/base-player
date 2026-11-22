@@ -85,6 +85,17 @@ Base Player today is a dark web landing page: big hero, mint and blue
 accents, pill-shaped chips, cards with drop borders. It reads as "an app put
 on the car", which PRODUCT.md rules out.
 
+### Colour and material: the kit's M look
+
+The apps the owner already runs from the MGU app kit (idrive7-apps) share one
+look, its default theme **M Tricolour** (`kit/runtime/themes.js`,
+`gauges.js`): ground `#04060a`, square panels as a faint grey overlay, each
+topped by the M stripe (light blue `#81c4ff`, dark blue `#16588e`, red
+`#e7222e`, the red part with an angled end) and a thin white line; bold
+uppercase labels with letter spacing; the focused or selected element marked
+in M red `#ef2b2d` with a red bar under it. Base Player uses the same, so it
+sits beside those apps as one family.
+
 ## 4. Changes proposed
 
 1. **One screen per state, no hero.** The state *is* the content: Ready →
@@ -104,8 +115,9 @@ on the car", which PRODUCT.md rules out.
    column with the cause in 30 px, one line of what to do, and the fix as a
    control where there is one ("Use screen mirroring" points the user to the
    phone; "Try again" re-sends Connect).
-6. **Header as in iDrive:** small app mark and title left, status as a short
-   word with a coloured dot, Settings as a gear icon, not a word chip.
+6. **Header as in the kit's frame:** a light bar with the app mark and the
+   name in bold capitals, status as a pill with a coloured dot, Settings as a
+   gear icon. Panels, labels and the red selection as in the M theme above.
 7. **Copy for a glance:** at most six words per line on screens used while
    driving; full sentences only on the pairing and error screens, used parked.
 8. Bar order stays (Settings stays fifth so the HMI shows it). Hiding Stop
