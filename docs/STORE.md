@@ -30,8 +30,15 @@ has no release yet publishes release `v<version>` and then updates the
 3. Disconnect CarPlay in iDrive, open Base Player, press **Connect** and pick
    "Base Player" in the iPhone's Screen Mirroring or AirPlay list.
 
-The setting **Ignore certificate dates (wrong car clock)** is under the
-**Settings** button. It applies from the next Connect.
+The setting **Ignore certificate dates (wrong car clock)** belongs under the
+**Settings** button. On the one car tried so far that button did not appear
+in the bar, so the setting cannot be reached yet (see README, Status). It
+applies from the next Connect.
+
+If the page stays empty and video is black while the sound works, check in
+the Store that the renderer (`mgu-render`) is installed and up to date and
+restart the head unit. On the first install this happened once and went
+away; the cause is not known yet.
 
 ## If another receiver is installed
 
