@@ -1,7 +1,8 @@
-name: Store release (runtime + app)
+name: Store release (runtime + app + optional Web TV)
 
 # Builds the AirPlay runtime tool and the SDK-free app package, checks them and
-# writes the Store catalog. On main, a version that has no release yet is
+# writes the Store catalog. A separate job builds the optional Web TV tool
+# (Debian 13, WPE WebKit); its failure never blocks the app release. On main, a version that has no release yet is
 # published as release v<version>; the `catalog` release is switched last.
 # On other branches the same build runs as a check and keeps the packages as
 # workflow artifacts.
@@ -142,20 +143,93 @@ jobs:
             dist/SHA256SUMS
           if-no-files-found: error
 
-  publish:
+  webtv:
+    # Optional tool base-player-webtv: WPE WebKit 2.48 + GStreamer 1.26 from
+    # Debian 13, own private loader. Not required by the app.
     needs: build
-    if: github.ref == 'refs/heads/main' && github.repository == 'alex-base-pr/base-player'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    container: debian:13
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Install Python
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends python3 nodejs ca-certificates
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Build Web TV bundle
+        run: python3 airplay/tools/build_webtv.py --install-deps
+      - name: Check the private runtime and the westeros sink
+        run: |
+          B=.build/webtv/bundle
+          R=$B/runtime
+          for exe in base-player-webtv WPEWebProcess WPENetworkProcess gst-inspect-1.0; do
+            "$R/lib/ld-linux-x86-64.so.2" --library-path "$R/lib" --list "$R/libexec/$exe" | grep -v libasound | grep -q 'not found' && exit 1
+          done
+          export GST_PLUGIN_SYSTEM_PATH_1_0= GST_PLUGIN_PATH_1_0="$PWD/$R/plugins" GST_REGISTRY_1_0="$PWD/webtv-registry.bin" GST_REGISTRY_FORK=no
+          "$B/bin/gst-inspect-1.0" westerossink | grep -q rectangle
+          "$B/bin/gst-inspect-1.0" westerossink | grep -q zorder
+          "$B/bin/gst-inspect-1.0" mguaudiosink > /dev/null
+          "$B/bin/gst-inspect-1.0" wpesrc > /dev/null
+          "$B/bin/base-player-webtv" --url ftp://bad > args.txt 2>/dev/null && exit 1
+          grep -qx 'WEBTV error args' args.txt
+          ! grep -q '/usr/lib/x86_64-linux-gnu/wpe-webkit-2.0' "$R/lib/libWPEWebKit-2.0.so.1"
+      - name: Read version
+        id: version
+        run: echo "version=$(python3 -c "import json;print(json.load(open('.build/webtv/bundle/build-manifest.json'))['version'])")" >> "$GITHUB_OUTPUT"
+      - name: Package Web TV tool
+        run: |
+          python3 airplay/tools/package_webtv.py --out dist
+          tar -tzf dist/base-player-webtv@*.tgz | grep -qx 'files/bin/base-player-webtv'
+          ! tar -tzf dist/base-player-webtv@*.tgz | grep -q '^units/'
+          tar -xzOf dist/base-player-webtv@*.tgz component.json | python3 -c "import json,sys;c=json.load(sys.stdin);assert c['id']=='base-player-webtv' and not c.get('units') and c['restart']==[],c"
+      - uses: actions/download-artifact@v4
+        with:
+          name: store-packages
+          path: main-dist
+      - name: Check out pinned Store validator
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: robertnisipeanu/mgu-store
+          ref: 8cfae23db27e51d86f84e65b13ce0592668d8df9
+          path: .store
+          persist-credentials: false
+      - name: Validate with the Store deploy tool
+        run: |
+          V=${{ needs.build.outputs.version }}
+          node test/store_package_check.js .store main-dist/base_player@$V.tgz main-dist/base-player-receiver@$V.tgz dist/base-player-webtv@${{ steps.version.outputs.version }}.tgz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: webtv-package
+          path: |
+            dist/base-player-webtv@*.tgz
+            dist/base-player-webtv@*.size.json
+          if-no-files-found: error
+
+  publish:
+    needs: [build, webtv]
+    # The optional Web TV tool is published only when its job succeeded.
+    if: always() && needs.build.result == 'success' && github.ref == 'refs/heads/main' && github.repository == 'alex-base-pr/base-player'
     runs-on: ubuntu-24.04
     permissions:
       contents: write
     env:
       GH_TOKEN: ${{ github.token }}
       VERSION: ${{ needs.build.outputs.version }}
+      WEBTV_VERSION: ${{ needs.webtv.result == 'success' && needs.webtv.outputs.version || '' }}
       REPO: ${{ github.repository }}
     steps:
       - uses: actions/download-artifact@v4
         with:
           name: store-packages
+          path: dist
+      - uses: actions/download-artifact@v4
+        if: needs.webtv.result == 'success'
+        with:
+          name: webtv-package
           path: dist
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
@@ -168,21 +242,28 @@ jobs:
             echo "v$VERSION is already published; release assets are never replaced."
             exit 0
           fi
+          assets="dist/base_player@$VERSION.tgz dist/base-player-receiver@$VERSION.tgz"
+          webtv_args=""
+          if [ -n "$WEBTV_VERSION" ]; then
+            assets="$assets dist/base-player-webtv@$WEBTV_VERSION.tgz"
+            webtv_args="--webtv-version $WEBTV_VERSION"
+            (cd dist && sha256sum "base-player-webtv@$WEBTV_VERSION.tgz" >> SHA256SUMS)
+          fi
           gh release create "v$VERSION" --repo "$REPO" --target "$GITHUB_SHA" \
             --title "Base Player $VERSION" \
-            --notes "Store packages: app base_player $VERSION and receiver base-player-receiver $VERSION. Add $REPO in MGU Store and choose Releases." \
-            dist/base_player@$VERSION.tgz dist/base-player-receiver@$VERSION.tgz dist/SHA256SUMS
+            --notes "Store packages: app base_player $VERSION and receiver base-player-receiver $VERSION${WEBTV_VERSION:+, optional base-player-webtv $WEBTV_VERSION}. Add $REPO in MGU Store and choose Releases." \
+            $assets dist/SHA256SUMS
           # A private repository's assets are downloaded through their API URL
           # with the Store's token; a public one's through the release download.
           urls=""
           if [ "$(gh api "repos/$REPO" --jq .private)" = "true" ]; then
-            for name in "base_player@$VERSION.tgz" "base-player-receiver@$VERSION.tgz"; do
+            for name in "base_player@$VERSION.tgz" "base-player-receiver@$VERSION.tgz" ${WEBTV_VERSION:+"base-player-webtv@$WEBTV_VERSION.tgz"}; do
               url=$(gh api "repos/$REPO/releases/tags/v$VERSION" --jq ".assets[] | select(.name == \"$name\") | .url")
               test -n "$url"
               urls="$urls --url $name=$url"
             done
           fi
-          python3 src/tools/make_catalog.py --dist dist --app-version "$VERSION" --runtime-version "$VERSION" --tag "v$VERSION" $urls > /dev/null
+          python3 src/tools/make_catalog.py --dist dist --app-version "$VERSION" --runtime-version "$VERSION" --tag "v$VERSION" $webtv_args $urls > /dev/null
           if ! gh release view catalog --repo "$REPO" > /dev/null 2>&1; then
             gh release create catalog --repo "$REPO" --target "$GITHUB_SHA" --title "Base Player Store catalog" \
               --notes "Store catalog for $REPO. Choose Releases in MGU Store."

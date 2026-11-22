@@ -23,6 +23,7 @@ def main():
     parser.add_argument('--app-version', required=True)
     parser.add_argument('--runtime-version', required=True)
     parser.add_argument('--tag', required=True)
+    parser.add_argument('--webtv-version', help='add the optional base-player-webtv tool (its .tgz must be in --dist)')
     parser.add_argument('--url', action='append', default=[], metavar='NAME=URL',
                         help='download URL of an uploaded asset (private repository)')
     args = parser.parse_args()
@@ -41,6 +42,16 @@ def main():
          'requires': {'base-player-receiver': args.runtime_version, 'mgu-uplink': '0.7.3', 'mgu-render': '0.6.11', 'mgu-deploy': '0.7.17'},
          'uninstallable': True, 'mguHmi': ['ID7']},
     ]}
+    if args.webtv_version:
+        # Optional tool: listed in the Store, offered as an update only once
+        # installed (mgu-store docs/PUBLISHING.md). Deliberately not in the
+        # app's requires: Base Player works without Web TV.
+        webtv = dist / ('base-player-webtv@%s.tgz' % args.webtv_version)
+        catalog['components'].append(
+            {'id': 'base-player-webtv', 'kind': 'tool', 'title': 'Base Player Web TV (experimental)',
+             'description': 'Optional web engine (WPE WebKit) for the Web TV mode of Base Player',
+             'author': 'Base Player', 'version': args.webtv_version, 'artifact': artifact(webtv, args.tag, urls),
+             'requires': {'mgu-deploy': '0.7.17'}, 'optional': True, 'uninstallable': True, 'mguHmi': ['ID7']})
     (dist / 'catalog.json').write_text(json.dumps(catalog, indent=2) + '\n')
     print(json.dumps(catalog, indent=2))
 
