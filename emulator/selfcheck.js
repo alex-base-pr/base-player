@@ -33,7 +33,7 @@ langs.forEach(lang => {
             const c = stubCanvas(1600, h);
             let ok = true, err = null;
             try {
-                drawHome(c, scene.state || {}, scene.notice || '', null, null, () => {});
+                drawHome(c, scene.state || {}, scene.notice || '', null, null, () => {}, () => {});
             } catch (e) { ok = false; err = e; throws++; }
             if (ok && h === 520 && c.calls > 20) richByLang[lang]++;
             results.push({ lang, h, name: scene.name, calls: c.calls, ok });

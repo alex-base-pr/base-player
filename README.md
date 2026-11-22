@@ -45,9 +45,10 @@ Seen there, not yet explained:
   worked since. What changed in between is not known yet; if it happens,
   check in the Store that the renderer (`mgu-render`) is installed and up to
   date, and restart the head unit.
-- **The Settings button does not appear** in the button bar, so the
-  certificate-date setting cannot be reached on the unit yet. The kit shows
-  a limited number of buttons and Settings is the sixth.
+- **The Settings button did not appear** (0.2.1–0.2.2): where the kit draws
+  the screen it moves Settings from the bar into a header tab that this
+  full-screen app does not show. Fixed in 0.2.3: a Settings button in the
+  app's own header, and Settings before Close in the HMI's bar.
 - "For BMW sound choose Connect again" was shown while the sound did play.
 
 Not yet tried on the car: screen mirroring picture, the cause of a failed

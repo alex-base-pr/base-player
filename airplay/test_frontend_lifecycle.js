@@ -3,7 +3,7 @@ const assert=require('assert'),fs=require('fs'),path=require('path'),vm=require(
 const clicks={},visible=[],focus=[];
 let receiver,started,renderLoop,presented,musicControl,lastNotice,homeFrames=0,videoReady=true,clock=10000,closedViews=0,stopResult=null,videoDraws=0;
 const signals={},profiles=[],musicCommands=[],startViewports=[],viewports=[];
-const sharedSettings=[],settingValues={certDateTolerance:false};let settingsChanged;
+const sharedSettings=[],settingValues={certDateTolerance:false},settingsClicks=[];let settingsChanged,openSettings;
 class BackendClient extends EventEmitter {
     constructor(){super();receiver=this;this.state={};this.stops=0;this.starts=0;}
     connect(){} start(profile,viewport){profiles.push(profile);startViewports.push([viewport.width,viewport.height]);this.starts++;return true;} stop(){this.stops++;return stopResult||Promise.resolve();} command(){}
@@ -14,13 +14,13 @@ class BackendClient extends EventEmitter {
     musicControl(action,value){musicCommands.push([action,value]);return true;}
 }
 const ctx={ui:{onClick:(id,fn)=>{clicks[id]=fn;},onVisible:fn=>visible.push(fn),onFocus:fn=>focus.push(fn),
-    close:()=>{closedViews++;return Promise.resolve();},image:()=>Promise.resolve()},log:{info(){},warn(){}},display:{gpu:{screen:{w:1920,h:504}},setPresentation:on=>{presented=on;}},
+    close:()=>{closedViews++;return Promise.resolve();},image:()=>Promise.resolve()},log:{info(){},warn(){}},display:{gpu:{screen:{w:1920,h:504}},setPresentation:on=>{presented=on;},_click:id=>settingsClicks.push(id)},
     loop:(name,hz,fn)=>{renderLoop=fn;},canvas:()=>({clear(){},text(){}}),dataDir:'/app/data',
     settings:{get:key=>settingValues[key],onChange:fn=>{settingsChanged=fn;}}};
 ctx.display.contentSize=()=>({w:1600,h:Math.floor((ctx.display.gpu.screen.h-48)/(ctx.display.gpu.screen.w/1600))});
 const modules={path,'./kit/mgu':{run:app=>{started=app.start(ctx);}},'./backend_client':{BackendClient},
     './video_bridge':{VideoBridge:class{ready(){return videoReady;} detach(){} attach(){return true;}draw(){videoDraws++;}}},
-    './view':{drawHome(c,s,n,l,a,control){homeFrames++;musicControl=control;lastNotice=n;}},'./logo_bridge':{LogoBridge:class{draw(){}}},
+    './view':{drawHome(c,s,n,l,a,control,settings){homeFrames++;musicControl=control;lastNotice=n;openSettings=settings;}},'./logo_bridge':{LogoBridge:class{draw(){}}},
     './music_artwork_bridge':{MusicArtworkBridge:class{update(){}drop(){}}},
     './brand_logo':{register(){}},'./i18n':require('../apps/base_player/i18n'),'./app_settings':{save(dir,value){sharedSettings.push([dir,value]);return true;}},'./kit/record':{setImage(){}},'./diagnose':{diagnose:()=>'',wifiDirect:()=>''}};
 vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../apps/base_player/main.js'),'utf8'),{
@@ -40,6 +40,7 @@ Promise.resolve(started).then(async()=>{
     receiver.socket={};
     receiver.emit('state',{profile:'auto',phase:'audio',mode:'audio',frame:{sequence:9}});
     await renderLoop();assert.strictEqual(presented,false,'music keeps the normal surface instead of stale fullscreen video');
+    assert.strictEqual(typeof openSettings,'function','the home screen gets a Settings action');openSettings();assert.deepStrictEqual(settingsClicks,['BTN_SETTINGS'],'it presses the kit\'s own Settings');
     assert.strictEqual(videoDraws,0,'automatic audio ignores stale video frames');
     musicControl('next');assert.strictEqual(musicCommands.length,0,'unsupported sender controls are inert');
     receiver.emit('state',{profile:'auto',mode:'audio',phase:'audio',music:{controls:{playPause:true,next:true,previous:true,shuffle:true,repeat:true},shuffle:0,repeat:0}});

@@ -190,7 +190,7 @@ ${registry}
     t.set(lang);
     var c = makeCanvas(ctx, 1600, H);
     var scene = fixtures[idx] || fixtures[0];
-    try { drawHome(c, scene.state || {}, scene.notice || '', null, null, function(){}); }
+    try { drawHome(c, scene.state || {}, scene.notice || '', null, null, function(){}, function(){}); }
     catch(e){ console.error('drawHome threw', e); }
     curTargets = c._targets || [];
     document.getElementById('scene-name').textContent = scene.name || '';

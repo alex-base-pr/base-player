@@ -68,7 +68,7 @@ function drawMusic(c, state, artwork, onControl) {
     const available = Object.keys(controls).filter(key => controls[key]).length;
     text(c, state.sender === 'android' ? t('playback_android') : available === 5 ? t('playback_iphone') : available ? t('more_on_iphone') : t('start_on_iphone'), 397, 437, 23, COLORS.muted);
 }
-function drawHome(c, state, notice, logo, artwork, onControl) {
+function drawHome(c, state, notice, logo, artwork, onControl, onSettings) {
     const original = c, sy = Math.min(1, (c.h || 520) / 520);
     if (sy < 1) {
         // A short display has a smaller borderless body above the controls.
@@ -102,6 +102,15 @@ function drawHome(c, state, notice, logo, artwork, onControl) {
     const busy = state.phase === 'starting' || state.phase === 'stopping' || state.phase === 'recovering' || loading;
     const connected = state.connected === true, android = state.sender === 'android';
     const status = state.phase === 'stopping' ? t('status_disconnecting') : connected ? (android ? t('status_android') : t('status_iphone')) : state.phase === 'error' ? t('status_check') : busy ? t('status_wait') : waiting ? t('status_ready') : t('status_off');
+    // Base Player: Settings in the header. Where the kit runs the screen it
+    // takes BTN_SETTINGS out of the bar and shows it as a header tab, which a
+    // full-bleed app like this one does not draw, so the app draws its own.
+    if (onSettings) {
+        c.roundRect(1112, 28, 148, 44, 22, COLORS.card);
+        c.strokeRoundRect(1112, 28, 148, 44, 22, 1, COLORS.edge);
+        text(c, t('btn_settings'), 1186, 58, 22, COLORS.ink, { align: 'center' });
+        if (c.target) c.target(1112, 28, 148, 44, onSettings, 'settings', 22);
+    }
     c.roundRect(1274, 28, 278, 44, 22, COLORS.card);
     c.circle(1298, 50, 5, connected ? COLORS.mint : state.phase === 'error' ? '#ffb178' : COLORS.muted);
     text(c, status, 1316, 58, 22, connected ? COLORS.mint : COLORS.muted);

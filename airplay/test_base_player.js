@@ -44,6 +44,23 @@ assert(labels({ phase: 'waiting', error: 'something_new' }).every(s => !/undefin
 assert(labels({ phase: 'idle' }).every(s => !/pllana/i.test(s)));
 assert(labels({ phase: 'idle' }).includes('Base Player'));
 
+// Settings is reachable: drawn in the header with a touch target when the
+// frontend passes the action, and listed before Close so the HMI's own
+// five-button bar shows it too.
+{
+    const drawn = [], targets = [];
+    const c = { h: 520, target: (x, y, w, h, fn, id) => targets.push({ id, fn }) };
+    ['clear', 'gradientRect', 'fillRect', 'card', 'roundRect', 'strokeRoundRect', 'line', 'circle', 'quad', 'image'].forEach(m => { c[m] = () => {}; });
+    c.text = s => { drawn.push(String(s)); return 0; };
+    let opened = 0;
+    drawHome(c, { phase: 'idle' }, '', null, null, null, () => opened++);
+    assert(drawn.includes('Settings'), 'Settings label drawn');
+    const target = targets.find(x => x.id === 'settings');
+    assert(target, 'Settings has a touch target'); target.fn(); assert.strictEqual(opened, 1);
+    const buttons = require('../apps/base_player/app.json').screens[0].buttons.map(b => b[0]);
+    assert(buttons.indexOf('BTN_SETTINGS') >= 0 && buttons.indexOf('BTN_SETTINGS') < 5, 'BTN_SETTINGS within the first five');
+}
+
 // The setting file: off unless it clearly says on.
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'base-player-settings-'));
 try {
