@@ -40,6 +40,15 @@ and `app_settings.js`, `airplay/test_base_player.js`,
 `airplay/tools/prepare_brand.py` and the mark it draws, `emulator/`, `tests/`,
 `docs/STORE.md`, `docs/NATIVE_PLAN.md`.
 
+## Ideas taken from mgu-updater
+
+<https://github.com/robertnisipeanu/mgu-store> (`native/mgu-updater`,
+GPL-3.0-or-later): forgiving a certificate's validity dates while checking
+everything else, because the head unit's clock is often wrong, and testing
+that with a private PKI where each certificate fails for its dates alone or
+for its dates and something else. No code was taken; Base Player's version
+is `native/bp_gst.c` and `tests/test_cert_dates.js`.
+
 ## Other components
 
 UxPlay, mDNSResponder, GStreamer and the other parts the runtime is built
