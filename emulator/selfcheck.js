@@ -12,7 +12,7 @@ const fixtures = require(path.join(__dirname, 'fixtures.js'));
 
 function stubCanvas(w, h) {
     const c = { w, h, calls: 0, _targets: [] };
-    ['clear', 'fillRect', 'gradientRect', 'roundRect', 'card', 'strokeRoundRect', 'line', 'circle', 'quad', 'image']
+    ['clear', 'fillRect', 'gradientRect', 'roundRect', 'card', 'strokeRoundRect', 'line', 'circle', 'quad', 'image', 'arc']
         .forEach(m => { c[m] = function () { c.calls++; return c; }; });
     c.text = function (s, x, y, size) { c.calls++; return String(s).length * (size || 10) * 0.5; };
     c.textWidth = function (s, size) { return String(s).length * (size || 10) * 0.5; };

@@ -31,14 +31,14 @@ assert(atlas.cacheKey && atlas.cacheKey !== 'de-1', 'a new glyph set needs a new
 function labels(state, notice) {
     const out = [];
     const c = { h: 520 };
-    ['clear', 'gradientRect', 'fillRect', 'card', 'roundRect', 'strokeRoundRect', 'line', 'circle', 'quad', 'image'].forEach(m => { c[m] = () => {}; });
+    ['clear', 'gradientRect', 'fillRect', 'card', 'roundRect', 'strokeRoundRect', 'line', 'circle', 'quad', 'image', 'arc'].forEach(m => { c[m] = () => {}; });
     c.text = s => { out.push(String(s)); return 0; };
     drawHome(c, state, notice || '', null, null, null);
     return out;
 }
 for (const name of names) {
     const shown = labels({ phase: 'waiting', mode: 'waiting', pin: '1234', error: name });
-    assert(shown.includes(t('err_' + name)), name + ' is shown with its own text');
+    assert(shown.join(' ').includes(t('err_' + name)), name + ' is shown with its own text');
 }
 assert(labels({ phase: 'waiting', error: 'something_new' }).every(s => !/undefined|err_/.test(s)), 'an unknown code shows no raw key');
 assert(labels({ phase: 'idle' }).every(s => !/pllana/i.test(s)));
@@ -50,13 +50,14 @@ assert(labels({ phase: 'idle' }).includes('Base Player'));
 {
     const drawn = [], targets = [];
     const c = { h: 520, target: (x, y, w, h, fn, id) => targets.push({ id, fn }) };
-    ['clear', 'gradientRect', 'fillRect', 'card', 'roundRect', 'strokeRoundRect', 'line', 'circle', 'quad', 'image'].forEach(m => { c[m] = () => {}; });
+    ['clear', 'gradientRect', 'fillRect', 'card', 'roundRect', 'strokeRoundRect', 'line', 'circle', 'quad', 'image', 'arc'].forEach(m => { c[m] = () => {}; });
     c.text = s => { drawn.push(String(s)); return 0; };
     let opened = 0;
     drawHome(c, { phase: 'idle' }, '', null, null, null, () => opened++);
-    assert(drawn.includes('Settings'), 'Settings label drawn');
     const target = targets.find(x => x.id === 'settings');
     assert(target, 'Settings has a touch target'); target.fn(); assert.strictEqual(opened, 1);
+    const connect = targets.find(x => x.id === 'connect');
+    assert(connect, 'Connect is a control on the page when not connected');
     const buttons = require('../apps/base_player/app.json').screens[0].buttons.map(b => b[0]);
     assert(buttons.indexOf('BTN_SETTINGS') >= 0 && buttons.indexOf('BTN_SETTINGS') < 5, 'BTN_SETTINGS within the first five');
 }

@@ -26,11 +26,12 @@ mgu.run({ async start(ctx) {
     let state = receiver.state, notice = '', closing = false, controlsUntil = 0, diagnosis = '', diagnosedAt = 0;
     let mirrorResumeUntil = 0, disconnecting = null, p2pText = '', p2pAt = 0;
     const isAudio = next => next.mode === 'audio' || next.profile === 'audio';
-    // The kit's own Settings action (a sheet drawn over the page, else the
-    // HMI's settings list), as if BTN_SETTINGS had been pressed.
-    const openSettings = () => {
-        if (ctx.display && typeof ctx.display._click === 'function') ctx.display._click('BTN_SETTINGS');
-        else if (ui.open) ui.open('SETTINGS');
+    // A control drawn on the page presses the bar button it stands for, as
+    // the HMI does (for Settings: the kit's sheet over the page, else the
+    // HMI's settings list).
+    const press = id => {
+        if (ctx.display && typeof ctx.display._click === 'function') ctx.display._click(id);
+        else if (id === 'BTN_SETTINGS' && ui.open) ui.open('SETTINGS');
     };
     const screenViewport = () => {
         const screen = ctx.display.gpu && ctx.display.gpu.screen;
@@ -143,7 +144,7 @@ mgu.run({ async start(ctx) {
             if (!unreachable()) diagnosis = '';
             else if (Date.now() - diagnosedAt > 2000) { diagnosedAt = Date.now(); diagnosis = diagnose(uid); }
             if (Date.now() - p2pAt > 10000) { p2pAt = Date.now(); p2pText = wifiDirect(); }
-            drawHome(c, p2pText ? Object.assign({}, state, { p2pText }) : state, notice || diagnosis, logo, artwork, musicControl, openSettings);
+            drawHome(c, p2pText ? Object.assign({}, state, { p2pText }) : state, notice || diagnosis, logo, artwork, musicControl, press);
         }
         if (!closing) await ui.image('MAIN_GFX', c);
     });

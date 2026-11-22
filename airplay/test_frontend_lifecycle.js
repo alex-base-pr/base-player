@@ -40,7 +40,7 @@ Promise.resolve(started).then(async()=>{
     receiver.socket={};
     receiver.emit('state',{profile:'auto',phase:'audio',mode:'audio',frame:{sequence:9}});
     await renderLoop();assert.strictEqual(presented,false,'music keeps the normal surface instead of stale fullscreen video');
-    assert.strictEqual(typeof openSettings,'function','the home screen gets a Settings action');openSettings();assert.deepStrictEqual(settingsClicks,['BTN_SETTINGS'],'it presses the kit\'s own Settings');
+    assert.strictEqual(typeof openSettings,'function','the home screen gets the bar-button action');openSettings('BTN_SETTINGS');openSettings('BTN_START');assert.deepStrictEqual(settingsClicks,['BTN_SETTINGS','BTN_START'],'page controls press the kit\'s own bar buttons');
     assert.strictEqual(videoDraws,0,'automatic audio ignores stale video frames');
     musicControl('next');assert.strictEqual(musicCommands.length,0,'unsupported sender controls are inert');
     receiver.emit('state',{profile:'auto',mode:'audio',phase:'audio',music:{controls:{playPause:true,next:true,previous:true,shuffle:true,repeat:true},shuffle:0,repeat:0}});

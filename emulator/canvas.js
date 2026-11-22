@@ -7,7 +7,8 @@
 
 function makeCanvas(ctx, w, h) {
     var FONT = 'Ubuntu, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, "Helvetica Neue", Arial, sans-serif';
-    function fontStr(size) { return Math.round(size) + 'px ' + FONT; }
+    // the kit's families: light (thin numerals), bold, everything else regular
+    function fontStr(size, font) { return (font === 'light' ? '300 ' : font === 'bold' ? '700 ' : '400 ') + Math.round(size) + 'px ' + FONT; }
     function roundPath(x, y, ww, hh, r) {
         r = Math.max(0, Math.min(r, Math.min(ww, hh) / 2));
         ctx.beginPath();
@@ -39,6 +40,19 @@ function makeCanvas(ctx, w, h) {
             ctx.save(); ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
             ctx.lineWidth = lineWidth; ctx.strokeStyle = color; ctx.lineCap = 'round'; ctx.stroke(); ctx.restore(); return c;
         },
+        /* The kit's ring sector: degrees, 0 at twelve o'clock, clockwise; r0..r1. */
+        arc: function (cx, cy, r0, r1, a0, a1, color, opts) {
+            var rad = function (a) { return (a - 90) * Math.PI / 180; };
+            if (a1 < a0) { var s = a0; a0 = a1; a1 = s; }
+            ctx.save(); ctx.beginPath();
+            ctx.arc(cx, cy, r1, rad(a0), rad(a1));
+            if (r0 > 0) ctx.arc(cx, cy, r0, rad(a1), rad(a0), true); else ctx.lineTo(cx, cy);
+            ctx.closePath(); ctx.fillStyle = color; ctx.fill('evenodd');
+            if (opts && opts.round && a1 - a0 < 360) [a0, a1].forEach(function (a) {
+                var rm = (r0 + r1) / 2; ctx.beginPath(); ctx.arc(cx + Math.cos(rad(a)) * rm, cy + Math.sin(rad(a)) * rm, (r1 - r0) / 2, 0, Math.PI * 2); ctx.fill();
+            });
+            ctx.restore(); return c;
+        },
         circle: function (cx, cy, radius, color) {
             ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, Math.max(0, radius), 0, Math.PI * 2); ctx.fillStyle = color; ctx.fill(); ctx.restore(); return c;
         },
@@ -63,7 +77,7 @@ function makeCanvas(ctx, w, h) {
             opts = opts || {};
             str = String(str);
             ctx.save();
-            ctx.font = fontStr(size); ctx.fillStyle = color; ctx.textBaseline = 'alphabetic';
+            ctx.font = fontStr(size, opts.font); ctx.fillStyle = color; ctx.textBaseline = 'alphabetic';
             if ('letterSpacing' in ctx) ctx.letterSpacing = (opts.spacing || 0) + 'px';
             var width = ctx.measureText(str).width;
             ctx.textAlign = opts.align === 'center' ? 'center' : opts.align === 'right' ? 'right' : 'left';
@@ -72,7 +86,7 @@ function makeCanvas(ctx, w, h) {
             return width + ('letterSpacing' in ctx ? 0 : spaced(str, opts.spacing));
         },
         textWidth: function (str, size, opts) {
-            ctx.save(); ctx.font = fontStr(size); var m = ctx.measureText(String(str)); ctx.restore();
+            ctx.save(); ctx.font = fontStr(size, opts && opts.font); var m = ctx.measureText(String(str)); ctx.restore();
             return m.width + spaced(String(str), opts && opts.spacing);
         },
         target: function (x, y, ww, hh, onClick, id, radius) { c._targets.push({ x: x, y: y, w: ww, h: hh, onClick: onClick, id: id, radius: radius }); },
