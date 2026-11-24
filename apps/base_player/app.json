@@ -2,7 +2,7 @@
   "id": "base_player",
   "title": "Base Player",
   "description": "Phone screen and sound on iDrive 7: AirPlay for iPhone, DLNA for Android",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "vendor": "base",
   "loggingId": "BPL1",
   "maxDiskUsage": 67108864,
@@ -16,7 +16,7 @@
   },
   "screens": [{
     "name": "MAIN", "kind": "canvas", "title": "Base Player", "bar": true, "borderless": true,
-    "buttons": [["BTN_START", "Connect"], ["BTN_END_VIDEO", "Stop video"], ["BTN_MIRROR", "To mirroring"], ["BTN_STOP", "Disconnect"], ["BTN_SETTINGS", "Settings"], ["BTN_CLOSE", "Close"]]
+    "buttons": [["BTN_START", "Connect"], ["BTN_STOP", "Disconnect"], ["BTN_SETTINGS", "Settings"], ["BTN_CLOSE", "Close"]]
   }],
   "settings": [
     { "key": "certDateTolerance", "label": "Ignore certificate dates (wrong car clock)", "type": "bool", "default": false },

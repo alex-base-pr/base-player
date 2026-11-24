@@ -18,6 +18,7 @@ module.exports = [
   { name: 'Ready, Web TV on', state: { phase: 'idle', webTv: true, webTvAvailable: true } },
   { name: 'Web TV loading', state: { phase: 'loading', mode: 'webtv', webTvPhase: 'loading', webTv: true, webTvAvailable: true } },
   { name: 'Web TV error', state: { phase: 'loading', mode: 'webtv', webTvPhase: 'loading', error: 'webtv_network', webTv: true, webTvAvailable: true } },
+  { name: 'Video stalled', state: { phase: 'mirroring', mode: 'hls', connected: true, videoControls: { mirror: true } }, notice: 'No video is coming from the phone. Stop video, or start it again on the phone.' },
   { name: 'Event log', state: { phase: 'waiting', mode: 'waiting', connected: true, logView: { url: 'http://192.168.1.1:7105', lines: [
     '09:41:02 app backend started, Base Player 0.4.1, node v8.17.0', '09:41:02 net internet: no', '09:41:20 ui start auto',
     '09:41:21 state phase=waiting mode=waiting connected=false', '09:41:21 airplay MGU_FEATURES video-modes',

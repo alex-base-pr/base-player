@@ -340,6 +340,22 @@ function drawLog(c, view) {
     });
 }
 
+function drawVideoControls(c, w, h, opts, onButton) {
+    // Stop video (and To mirroring for direct video), top right: on the
+    // video while its controls are shown, and on the page when video stalled.
+    const items = [['END_VIDEO', t('btn_end_video')]].concat(opts.mirror ? [['MIRROR', t('btn_mirror')]] : []);
+    const bw = 248, bh = 64, gap = 12, y = opts.page ? 84 : 24;
+    let x = (w || W) - 40 - items.length * bw - (items.length - 1) * gap;
+    items.forEach((item, i) => {
+        c.fillRect(x, y, bw, bh, i === 0 ? '#04060ae6' : '#04060acc');
+        stripe(c, x, y, bw);
+        if (i === 0) c.fillRect(x, y + bh - 4, bw, 4, C.sel);
+        label(c, item[1], x + bw / 2, y + 42, 20, C.ink, { align: 'center' });
+        if (onButton && c.target) c.target(x, y, bw, bh, () => onButton(item[0]), item[0].toLowerCase(), 0);
+        x += bw + gap;
+    });
+}
+
 /* ---------- page ---------- */
 function drawHome(c, state, notice, logo, artwork, onControl, onButton) {
     const original = c, sy = Math.min(1, (c.h || H) / H);
@@ -394,6 +410,7 @@ function drawHome(c, state, notice, logo, artwork, onControl, onButton) {
     else if (connected) drawConnected(c, state, android, failure);
     else if (state.pin) drawPairing(c, state, failure);
     else drawReady(c, state, busy, onButton, failure);
+    if (state.videoControls) drawVideoControls(c, W, H, Object.assign({ page: true }, state.videoControls), onButton);
 
     // One line at the foot: what a button press did, or what the receiver needs.
     const controlCodes = ['music_control_failed', 'music_control_busy', 'music_control_stale'];
@@ -407,4 +424,4 @@ function drawHome(c, state, notice, logo, artwork, onControl, onButton) {
         text(c, fit(c, foot, 22, 1480), X0 + 22, 505, 22, warn ? C.amberText : C.dim);
     }
 }
-module.exports = { drawHome, COLORS: C };
+module.exports = { drawHome, drawVideoControls, COLORS: C };

@@ -1,7 +1,7 @@
 'use strict';
 const assert=require('assert'),fs=require('fs'),path=require('path'),vm=require('vm'),EventEmitter=require('events');
 const clicks={},visible=[],focus=[];
-let receiver,started,renderLoop,presented,musicControl,lastNotice,homeFrames=0,videoReady=true,clock=10000,closedViews=0,stopResult=null,videoDraws=0;
+let lastHome,videoControlFrames=0,videoPress,receiver,started,renderLoop,presented,musicControl,lastNotice,homeFrames=0,videoReady=true,clock=10000,closedViews=0,stopResult=null,videoDraws=0;
 const signals={},profiles=[],musicCommands=[],startViewports=[],viewports=[];
 const sharedSettings=[],settingValues={certDateTolerance:false},settingsClicks=[];let settingsChanged,openSettings;
 class BackendClient extends EventEmitter {
@@ -20,7 +20,7 @@ const ctx={ui:{onClick:(id,fn)=>{clicks[id]=fn;},onVisible:fn=>visible.push(fn),
 ctx.display.contentSize=()=>({w:1600,h:Math.floor((ctx.display.gpu.screen.h-48)/(ctx.display.gpu.screen.w/1600))});
 const modules={path,'./kit/mgu':{run:app=>{started=app.start(ctx);}},'./backend_client':{BackendClient},
     './video_bridge':{VideoBridge:class{ready(){return videoReady;} detach(){} attach(){return true;}draw(){videoDraws++;}}},
-    './view':{drawHome(c,s,n,l,a,control,settings){homeFrames++;musicControl=control;lastNotice=n;openSettings=settings;}},'./logo_bridge':{LogoBridge:class{draw(){}}},
+    './view':{drawHome(c,s,n,l,a,control,settings){homeFrames++;musicControl=control;lastNotice=n;openSettings=settings;lastHome=s;},drawVideoControls(c,w,h,o,press){videoControlFrames++;videoPress=press;}},'./logo_bridge':{LogoBridge:class{draw(){}}},
     './music_artwork_bridge':{MusicArtworkBridge:class{update(){}drop(){}}},
     './brand_logo':{register(){}},'./i18n':require('../apps/base_player/i18n'),'./app_settings':{save(dir,value){sharedSettings.push([dir,value]);return true;}},'./kit/record':{setImage(){}},'./diagnose':{diagnose:()=>'',wifiDirect:()=>''}};
 vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../apps/base_player/main.js'),'utf8'),{
@@ -95,5 +95,20 @@ Promise.resolve(started).then(async()=>{
     await signals.SIGTERM();signals.exit();
     assert.strictEqual(receiver.disconnects,2,'loss of the frontend closes only the UI socket');
     assert.strictEqual(receiver.stops,4,'background UI termination must not stop music');
+    // Direct video that stops sending frames returns to the page with its controls.
+    clock+=100000; receiver.emit('state',{profile:'auto',phase:'mirroring',mode:'hls',connected:true,frame:{generation:'stall',sequence:1,width:1920,height:720}});
+    await renderLoop();assert.strictEqual(presented,true,'fresh direct video is fullscreen');
+    clock+=9000; await renderLoop();
+    assert.strictEqual(presented,false,'no new frame for 8 s: no black fullscreen');
+    assert(lastNotice===require('../apps/base_player/i18n').t('video_stalled')||/not confirmed/.test(lastNotice),'the stalled message unless a newer notice stands');
+    assert(lastHome.videoControls && lastHome.videoControls.mirror===true,'the page offers Stop video and To mirroring');
+    receiver.emit('state',{profile:'auto',phase:'mirroring',mode:'hls',connected:true,frame:{generation:'stall',sequence:2,width:1920,height:720}});
+    await renderLoop();assert.strictEqual(presented,true,'frames again: fullscreen again');
+    receiver.emit('state',{profile:'auto',phase:'mirroring',mode:'mirror',connected:true,frame:{generation:'m',sequence:1,width:1920,height:720}});
+    clock+=60000; await renderLoop();assert.strictEqual(presented,true,'an unchanged mirrored screen stays fullscreen');
+    const drawsBefore=videoControlFrames; ctx.display.onPresentationInput(); await renderLoop();
+    assert(videoControlFrames>drawsBefore,'video controls are drawn while the bar is shown');
+    const ends=receiver.videoEnds||0; receiver.emit('state',{profile:'auto',phase:'mirroring',mode:'hls',supportsVideoStop:true,connected:true,frame:{generation:'s2',sequence:1,width:1600,height:560}});
+    videoPress('END_VIDEO'); assert.strictEqual(receiver.videoEnds,ends+1,'Stop video on the page ends the video');
     console.log('Automatic audio/video UI switching, acknowledged stop/close and visible retry on disconnect failure passed');
 }).catch(e=>{console.error(e);process.exitCode=1;});

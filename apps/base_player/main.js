@@ -3,7 +3,7 @@ const path = require('path');
 const mgu = require('./kit/mgu');
 const { BackendClient } = require('./backend_client');
 const { VideoBridge } = require('./video_bridge');
-const { drawHome } = require('./view');
+const { drawHome, drawVideoControls } = require('./view');
 const { LogoBridge } = require('./logo_bridge');
 const { MusicArtworkBridge } = require('./music_artwork_bridge');
 const { diagnose, wifiDirect } = require('./diagnose');
@@ -35,6 +35,8 @@ mgu.run({ async start(ctx) {
     receiver.on('log', answer => { if (logView) logView = { lines: answer.lines, url: answer.url || '', loading: false }; });
     const press = id => {
         if (id === 'WEBTV') { startWebTv(); return; }
+        if (id === 'END_VIDEO') { endVideo(); return; }
+        if (id === 'MIRROR') { toMirror(); return; }
         if (id === 'LOG') {
             logView = logView ? null : { lines: [], url: '', loading: true };
             if (logView) { logAsked = Date.now(); receiver.requestLog(12); }
@@ -59,6 +61,12 @@ mgu.run({ async start(ctx) {
     // package is installed; the entry is on the Ready screen.
     const webTvSetting = ctx.settings.item && ctx.settings.item('webTv');
     const webTvOn = () => ctx.settings.get('webTv') === true && state.webTvAvailable === true;
+    // Direct video that stops sending frames must not leave a black screen
+    // without buttons: after STALL_MS the page comes back with the controls.
+    // (Mirroring an unchanged iPhone screen sends no frames; it is exempt.)
+    const STALL_MS = 8000;
+    let frameKey = '', frameAt = Date.now();
+    const stalled = () => !!state.frame && state.mode !== 'mirror' && state.mode !== 'webtv' && Date.now() - frameAt > STALL_MS;
     let webTvRequested = false, lastKey = '', keyCount = 0, keyAt = 0;
     const startWebTv = () => {
         if (disconnecting) return;
@@ -93,6 +101,8 @@ mgu.run({ async start(ctx) {
         if (next.mode === 'waiting' && next.returnMode === 'mirror' &&
             (state.mode !== 'waiting' || state.returnMode !== 'mirror')) mirrorResumeUntil = Date.now() + 5000;
         if (isAudio(next) || next.returnMode !== 'mirror' || next.frame) mirrorResumeUntil = 0;
+        const key = next.frame ? next.frame.generation + ':' + next.frame.sequence : '';
+        if (key !== frameKey) { frameKey = key; frameAt = Date.now(); }
         state = next;
         if (webTvSetting) webTvSetting.hidden = next.webTvAvailable !== true;
         artwork.update(isAudio(state) && state.music && state.music.artwork, state.music && state.music.epoch);
@@ -103,12 +113,15 @@ mgu.run({ async start(ctx) {
         if (disconnecting) return;
         notice = receiver.start('auto', screenViewport()) ? '' : (diagnose(uid) || t('starting'));
     });
-    ui.onClick('BTN_END_VIDEO', () => {
+    // Stop video and To mirroring are drawn on the page while video is shown
+    // (the HMI bar keeps four buttons); the ids still answer as before.
+    const endVideo = () => {
         if (state.mode === 'webtv') { stopWebTv(); notice = ''; return; }
         if (state.mode === 'hls' || state.phase === 'loading' || state.playlistPending)
             notice = receiver.endVideo() ? '' : t('video_ctl_unavailable');
         else notice = t('no_video');
-    });
+    };
+    ui.onClick('BTN_END_VIDEO', endVideo);
     const endSession = async close => {
         controlsUntil = Date.now() + 8000;
         notice = t('disconnecting');
@@ -124,11 +137,12 @@ mgu.run({ async start(ctx) {
         } finally { disconnecting = null; }
     };
     ui.onClick('BTN_STOP', () => endSession(false));
-    ui.onClick('BTN_MIRROR', () => {
+    const toMirror = () => {
         if (isAudio(state)) { notice = t('start_mirror_hint'); return; }
         if (state.detached || state.mode === 'hls' || state.playlistPending) { notice = ''; receiver.resumeMirror(); controlsUntil = 0; }
         else notice = t('mirror_already');
-    });
+    };
+    ui.onClick('BTN_MIRROR', toMirror);
     ui.onClick('BTN_CLOSE', () => endSession(true));
     const musicControl = action => {
         const music = state.music || {}, controls = music.controls || {};
@@ -168,7 +182,7 @@ mgu.run({ async start(ctx) {
     // log (LOG page on the car Wi-Fi), at most once per 5 s.
     let uiErrorAt = 0;
     const reportUiError = e => {
-        log.error('Base Player page', e);
+        (log.error || log.warn || (() => {})).call(log, 'Base Player page: ' + String(e && e.stack || e));
         if (Date.now() - uiErrorAt < 5000) return;
         uiErrorAt = Date.now();
         receiver.command('ui-error', { text: String(e && e.stack || e).slice(0, 500) });
@@ -177,7 +191,8 @@ mgu.run({ async start(ctx) {
         const transitioning = !isAudio(state) && state.mode !== 'webtv' && (state.phase === 'loading' ||
             (state.mode === 'waiting' && state.returnMode === 'mirror' && !!state.pin && !state.error &&
                 !state.playlistPending && Date.now() < mirrorResumeUntil));
-        const fullscreen = !isAudio(state) && (!!state.frame || transitioning) && Date.now() >= controlsUntil && video.ready();
+        const stuck = stalled();
+        const fullscreen = !isAudio(state) && (!!state.frame || transitioning) && !stuck && Date.now() >= controlsUntil && video.ready();
         ctx.display.setPresentation(fullscreen);
         const body = ctx.display.contentSize && ctx.display.contentSize();
         const size = fullscreen ? ctx.display.gpu.screen : body || { w: 1600, h: 520 };
@@ -187,12 +202,16 @@ mgu.run({ async start(ctx) {
         const resizing = !isAudio(state) && state.mode === 'hls' && state.frame &&
             state.frame.width * size.h !== state.frame.height * size.w;
         const c = ctx.canvas(size.w, size.h);
-        if (!isAudio(state) && state.frame && !resizing && video.attach(state.file, state.frame.generation)) {
+        // Video controls on the page: Stop video, and To mirroring for direct video.
+        const videoControls = () => drawVideoControls(c, size.w, size.h, { mirror: state.mode === 'hls' || !!state.detached || !!state.playlistPending }, press);
+        if (stuck) video.detach();
+        if (!isAudio(state) && state.frame && !resizing && !stuck && video.attach(state.file, state.frame.generation)) {
             c.clear('#000000');
             // The native output follows this exact viewport in both axes.
             video.draw(c, 0, 0, size.w, size.h, state.frame, state.mode === 'hls' ? 'stretch' : 'contain');
             if (state.mode === 'webtv') drawKey(c, size.w);
-        } else if (transitioning || resizing) {
+            if (!fullscreen) videoControls();
+        } else if (!stuck && (transitioning || resizing)) {
             c.clear('#000000');
             logo.draw(c, size.w / 2 - 32, size.h / 2 - 70, 64, 64);
             c.text(state.sender === 'android' && state.mode === 'mirror' ? t('android_wait_frame') :
@@ -204,7 +223,9 @@ mgu.run({ async start(ctx) {
             else if (Date.now() - diagnosedAt > 2000) { diagnosedAt = Date.now(); diagnosis = diagnose(uid); }
             if (Date.now() - p2pAt > 10000) { p2pAt = Date.now(); p2pText = wifiDirect(); }
             if (logView && Date.now() - logAsked > 1000) { logAsked = Date.now(); receiver.requestLog(12); }
-            drawHome(c, Object.assign({}, state, p2pText ? { p2pText } : {}, { webTv: webTvOn() }, logView ? { logView } : {}), notice || diagnosis, logo, artwork, musicControl, press);
+            drawHome(c, Object.assign({}, state, p2pText ? { p2pText } : {}, { webTv: webTvOn() }, logView ? { logView } : {},
+                stuck ? { videoControls: { mirror: state.mode === 'hls' || !!state.detached } } : {}),
+                notice || (stuck ? t('video_stalled') : '') || diagnosis, logo, artwork, musicControl, press);
         }
         if (!closing) await ui.image('MAIN_GFX', c);
     };

@@ -374,6 +374,7 @@ const STRINGS = {
         err_webtv_failed: 'Web TV stopped unexpectedly. Choose Web TV again.',
         err_webtv_missing: 'The Web TV package is missing. Install "Base Player Web TV" in the Store.',
         err_webtv_unavailable: 'Web TV is turned off in Settings or not installed.',
+        video_stalled: 'No video is coming from the phone. Stop video, or start it again on the phone.',
         log_button: 'Log',
         log_title: 'Event log',
         log_page: 'Full log on a phone on the car Wi-Fi:',
@@ -795,6 +796,22 @@ function drawLog(c, view) {
     });
 }
 
+function drawVideoControls(c, w, h, opts, onButton) {
+    // Stop video (and To mirroring for direct video), top right: on the
+    // video while its controls are shown, and on the page when video stalled.
+    const items = [['END_VIDEO', t('btn_end_video')]].concat(opts.mirror ? [['MIRROR', t('btn_mirror')]] : []);
+    const bw = 248, bh = 64, gap = 12, y = opts.page ? 84 : 24;
+    let x = (w || W) - 40 - items.length * bw - (items.length - 1) * gap;
+    items.forEach((item, i) => {
+        c.fillRect(x, y, bw, bh, i === 0 ? '#04060ae6' : '#04060acc');
+        stripe(c, x, y, bw);
+        if (i === 0) c.fillRect(x, y + bh - 4, bw, 4, C.sel);
+        label(c, item[1], x + bw / 2, y + 42, 20, C.ink, { align: 'center' });
+        if (onButton && c.target) c.target(x, y, bw, bh, () => onButton(item[0]), item[0].toLowerCase(), 0);
+        x += bw + gap;
+    });
+}
+
 /* ---------- page ---------- */
 function drawHome(c, state, notice, logo, artwork, onControl, onButton) {
     const original = c, sy = Math.min(1, (c.h || H) / H);
@@ -849,6 +866,7 @@ function drawHome(c, state, notice, logo, artwork, onControl, onButton) {
     else if (connected) drawConnected(c, state, android, failure);
     else if (state.pin) drawPairing(c, state, failure);
     else drawReady(c, state, busy, onButton, failure);
+    if (state.videoControls) drawVideoControls(c, W, H, Object.assign({ page: true }, state.videoControls), onButton);
 
     // One line at the foot: what a button press did, or what the receiver needs.
     const controlCodes = ['music_control_failed', 'music_control_busy', 'music_control_stale'];
@@ -862,7 +880,7 @@ function drawHome(c, state, notice, logo, artwork, onControl, onButton) {
         text(c, fit(c, foot, 22, 1480), X0 + 22, 505, 22, warn ? C.amberText : C.dim);
     }
 }
-module.exports = { drawHome, COLORS: C };
+module.exports = { drawHome, drawVideoControls, COLORS: C };
 
 });
 __def("fixtures", function(module, exports, require){
@@ -886,6 +904,7 @@ module.exports = [
   { name: 'Ready, Web TV on', state: { phase: 'idle', webTv: true, webTvAvailable: true } },
   { name: 'Web TV loading', state: { phase: 'loading', mode: 'webtv', webTvPhase: 'loading', webTv: true, webTvAvailable: true } },
   { name: 'Web TV error', state: { phase: 'loading', mode: 'webtv', webTvPhase: 'loading', error: 'webtv_network', webTv: true, webTvAvailable: true } },
+  { name: 'Video stalled', state: { phase: 'mirroring', mode: 'hls', connected: true, videoControls: { mirror: true } }, notice: 'No video is coming from the phone. Stop video, or start it again on the phone.' },
   { name: 'Event log', state: { phase: 'waiting', mode: 'waiting', connected: true, logView: { url: 'http://192.168.1.1:7105', lines: [
     '09:41:02 app backend started, Base Player 0.4.1, node v8.17.0', '09:41:02 net internet: no', '09:41:20 ui start auto',
     '09:41:21 state phase=waiting mode=waiting connected=false', '09:41:21 airplay MGU_FEATURES video-modes',
@@ -905,7 +924,7 @@ module.exports = [
   var t = i18n.t;
   var drawHome = __require('./view').drawHome;
   var fixtures = __require('./fixtures');
-  var BUTTONS = [{"id":"BTN_START","label":"Connect","key":"btn_start"},{"id":"BTN_END_VIDEO","label":"Stop video","key":"btn_end_video"},{"id":"BTN_MIRROR","label":"To mirroring","key":"btn_mirror"},{"id":"BTN_STOP","label":"Disconnect","key":"btn_stop"},{"id":"BTN_SETTINGS","label":"Settings","key":"btn_settings"},{"id":"BTN_CLOSE","label":"Close","key":"btn_close"}];
+  var BUTTONS = [{"id":"BTN_START","label":"Connect","key":"btn_start"},{"id":"BTN_STOP","label":"Disconnect","key":"btn_stop"},{"id":"BTN_SETTINGS","label":"Settings","key":"btn_settings"},{"id":"BTN_CLOSE","label":"Close","key":"btn_close"}];
 
   var canvas = document.getElementById('screen');
   var ctx = canvas.getContext('2d');
