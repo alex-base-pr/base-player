@@ -1,7 +1,7 @@
 'use strict';
 const assert=require('assert'),fs=require('fs'),path=require('path'),vm=require('vm'),EventEmitter=require('events');
 const clicks={},visible=[],focus=[];
-let luma=200,lastHome,videoControlFrames=0,videoPress,receiver,started,renderLoop,presented,musicControl,lastNotice,homeFrames=0,videoReady=true,clock=10000,closedViews=0,stopResult=null,videoDraws=0;
+let handles=0,luma=200,lastHome,videoControlFrames=0,videoPress,receiver,started,renderLoop,presented,musicControl,lastNotice,homeFrames=0,videoReady=true,clock=10000,closedViews=0,stopResult=null,videoDraws=0;
 const signals={},profiles=[],musicCommands=[],startViewports=[],viewports=[];
 const sharedSettings=[],settingValues={certDateTolerance:false},settingsClicks=[];let settingsChanged,openSettings;
 class BackendClient extends EventEmitter {
@@ -15,7 +15,7 @@ class BackendClient extends EventEmitter {
 }
 const ctx={ui:{onClick:(id,fn)=>{clicks[id]=fn;},onVisible:fn=>visible.push(fn),onFocus:fn=>focus.push(fn),
     close:()=>{closedViews++;return Promise.resolve();},image:()=>Promise.resolve()},log:{info(){},warn(){}},display:{gpu:{screen:{w:1920,h:504}},setPresentation:on=>{presented=on;},_click:id=>settingsClicks.push(id)},
-    loop:(name,hz,fn)=>{renderLoop=fn;},canvas:()=>({clear(){},text(){}}),dataDir:'/app/data',
+    loop:(name,hz,fn)=>{renderLoop=fn;},canvas:()=>({clear(){},text(){},roundRect(x,y,w,h){if(h===7)handles++;}}),dataDir:'/app/data',
     settings:{get:key=>settingValues[key],onChange:fn=>{settingsChanged=fn;}}};
 ctx.display.contentSize=()=>({w:1600,h:Math.floor((ctx.display.gpu.screen.h-48)/(ctx.display.gpu.screen.w/1600))});
 const modules={path,'./kit/mgu':{run:app=>{started=app.start(ctx);}},'./backend_client':{BackendClient},
@@ -98,6 +98,7 @@ Promise.resolve(started).then(async()=>{
     // Direct video that stops sending frames returns to the page with its controls.
     clock+=100000; receiver.emit('state',{profile:'auto',phase:'mirroring',mode:'hls',connected:true,frame:{generation:'stall',sequence:1,width:1920,height:720}});
     await renderLoop();assert.strictEqual(presented,true,'fresh direct video is fullscreen');
+    assert(handles>0,'fullscreen video shows the white line that brings the buttons back');
     clock+=9000; await renderLoop();
     assert.strictEqual(presented,false,'no new frame for 8 s: no black fullscreen');
     assert(lastNotice===require('../apps/base_player/i18n').t('video_stalled')||/not confirmed/.test(lastNotice),'the stalled message unless a newer notice stands');

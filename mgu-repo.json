@@ -5,7 +5,7 @@
     "manifest": "app.json",
     "mguHmi": ["ID7"],
     "requires": {
-      "base-player-receiver": "0.4.4",
+      "base-player-receiver": "0.4.5",
       "mgu-uplink": "0.7.3",
       "mgu-render": "0.6.11",
       "mgu-deploy": "0.7.17"

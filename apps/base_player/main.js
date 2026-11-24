@@ -104,6 +104,9 @@ mgu.run({ async start(ctx) {
     };
     // A small mark per key: the renderer takes input away from an app whose
     // picture stays the same after several inputs.
+    // While the bar is hidden over fullscreen video: a short white line at
+    // the foot says a tap brings the buttons back.
+    const drawHandle = (c, w, h) => { if (c.roundRect) c.roundRect(w / 2 - 70, h - 22, 140, 7, 3.5, '#ffffffb3'); };
     const drawKey = (c, w) => {
         if (!lastKey || Date.now() - keyAt > 1500) return;
         c.fillRect(w - 196 + (keyCount & 1) * 4, 24, 160, 52, '#04060acc');
@@ -224,6 +227,7 @@ mgu.run({ async start(ctx) {
             video.draw(c, 0, 0, size.w, size.h, state.frame, state.mode === 'hls' ? 'stretch' : 'contain');
             if (state.mode === 'webtv') drawKey(c, size.w);
             if (!fullscreen) videoControls();
+            else drawHandle(c, size.w, size.h);
         } else if (!stuck && (transitioning || resizing)) {
             c.clear('#000000');
             logo.draw(c, size.w / 2 - 32, size.h / 2 - 70, 64, 64);
