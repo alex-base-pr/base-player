@@ -47,4 +47,27 @@ class VideoBridge {
         canvas.f[i + 5] = 0; canvas.u[i + 6] = 1; canvas.n += 7;
     }
 }
-module.exports = { VideoBridge, message };
+// Brightest of a few luma rows in the current frame (0..255), or null. A
+// phone with its screen locked keeps mirroring a black picture: the page
+// must not stay black and without buttons then.
+function frameLuma(file) {
+    const fs = require('fs');
+    let fd;
+    try {
+        fd = fs.openSync(file, fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW || 0));
+        const head = Buffer.alloc(64);
+        if (fs.readSync(fd, head, 0, 64, 0) !== 64 || head.readUInt32LE(0) !== 0x4656474d) return null;
+        const w = head.readUInt32LE(8), h = head.readUInt32LE(12), slot = head.readUInt32LE(20), slots = head.readUInt32LE(24);
+        if (w < 16 || h < 16 || w > 2048 || h > 2048 || slots < 1 || slots > 4 || slot >= slots) return null;
+        const base = 64 + slot * w * h * 3 / 2, row = Buffer.alloc(w);
+        let max = 0;
+        for (let i = 1; i <= 7; i++) {
+            const y = Math.floor(h * i / 8);
+            if (fs.readSync(fd, row, 0, w, base + y * w) !== w) return null;
+            for (let x = 0; x < w; x += 8) if (row[x] > max) max = row[x];
+        }
+        return max;
+    } catch (e) { return null; }
+    finally { if (fd !== undefined) try { fs.closeSync(fd); } catch (e) {} }
+}
+module.exports = { VideoBridge, message, frameLuma };

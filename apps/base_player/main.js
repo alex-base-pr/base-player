@@ -2,7 +2,7 @@
 const path = require('path');
 const mgu = require('./kit/mgu');
 const { BackendClient } = require('./backend_client');
-const { VideoBridge } = require('./video_bridge');
+const { VideoBridge, frameLuma } = require('./video_bridge');
 const { drawHome, drawVideoControls } = require('./view');
 const { LogoBridge } = require('./logo_bridge');
 const { MusicArtworkBridge } = require('./music_artwork_bridge');
@@ -66,6 +66,19 @@ mgu.run({ async start(ctx) {
     // (Mirroring an unchanged iPhone screen sends no frames; it is exempt.)
     const STALL_MS = 8000;
     let frameKey = '', frameAt = Date.now();
+    // A black picture (a locked iPhone keeps mirroring black) for BLACK_MS
+    // also returns to the page. Checked once a second on a few luma rows.
+    const BLACK_MS = 6000, BLACK_LUMA = 24;
+    let lumaAt = 0, darkSince = 0;
+    const black = () => {
+        if (!state.frame || !state.file || isAudio(state)) { darkSince = 0; return false; }
+        if (Date.now() - lumaAt >= 1000) {
+            lumaAt = Date.now();
+            const luma = frameLuma(state.file);
+            darkSince = luma !== null && luma < BLACK_LUMA ? darkSince || Date.now() : 0;
+        }
+        return !!darkSince && Date.now() - darkSince > BLACK_MS;
+    };
     const stalled = () => !!state.frame && state.mode !== 'mirror' && state.mode !== 'webtv' && Date.now() - frameAt > STALL_MS;
     let webTvRequested = false, lastKey = '', keyCount = 0, keyAt = 0;
     const startWebTv = () => {
@@ -191,7 +204,7 @@ mgu.run({ async start(ctx) {
         const transitioning = !isAudio(state) && state.mode !== 'webtv' && (state.phase === 'loading' ||
             (state.mode === 'waiting' && state.returnMode === 'mirror' && !!state.pin && !state.error &&
                 !state.playlistPending && Date.now() < mirrorResumeUntil));
-        const stuck = stalled();
+        const dark = black(), stuck = stalled() || dark;
         const fullscreen = !isAudio(state) && (!!state.frame || transitioning) && !stuck && Date.now() >= controlsUntil && video.ready();
         ctx.display.setPresentation(fullscreen);
         const body = ctx.display.contentSize && ctx.display.contentSize();
@@ -225,7 +238,7 @@ mgu.run({ async start(ctx) {
             if (logView && Date.now() - logAsked > 1000) { logAsked = Date.now(); receiver.requestLog(12); }
             drawHome(c, Object.assign({}, state, p2pText ? { p2pText } : {}, { webTv: webTvOn() }, logView ? { logView } : {},
                 stuck ? { videoControls: { mirror: state.mode === 'hls' || !!state.detached } } : {}),
-                notice || (stuck ? t('video_stalled') : '') || diagnosis, logo, artwork, musicControl, press);
+                notice || (dark ? t('video_black') : stuck ? t('video_stalled') : '') || diagnosis, logo, artwork, musicControl, press);
         }
         if (!closing) await ui.image('MAIN_GFX', c);
     };

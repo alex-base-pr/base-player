@@ -110,7 +110,7 @@ async function frontend() {
         display: { gpu: { screen: { w: 1920, h: 720 } }, setPresentation: on => { presented = on; }, contentSize: () => ({ w: 1600, h: 560 }), _click() {} },
         settings: { get: key => values[key], item: key => items[key], onChange() {} } };
     const modules = { path, './kit/mgu': { run: app => app.start(ctx) }, './backend_client': { BackendClient },
-        './video_bridge': { VideoBridge: class { ready() { return true; } detach() {} attach() { return true; } draw() { ops.push(['video']); } } },
+        './video_bridge': { frameLuma: () => 200, VideoBridge: class { ready() { return true; } detach() {} attach() { return true; } draw() { ops.push(['video']); } } },
         './view': { drawHome: (c, state, notice, logo, art, control, onButton) => homes.push({ state, notice, onButton }) },
         './logo_bridge': { LogoBridge: class { draw() {} } }, './music_artwork_bridge': { MusicArtworkBridge: class { update() {} drop() {} } },
         './brand_logo': { register() {} }, './i18n': require('../apps/base_player/i18n'), './kit/record': { setImage() {} },

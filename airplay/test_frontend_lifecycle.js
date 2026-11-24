@@ -1,7 +1,7 @@
 'use strict';
 const assert=require('assert'),fs=require('fs'),path=require('path'),vm=require('vm'),EventEmitter=require('events');
 const clicks={},visible=[],focus=[];
-let lastHome,videoControlFrames=0,videoPress,receiver,started,renderLoop,presented,musicControl,lastNotice,homeFrames=0,videoReady=true,clock=10000,closedViews=0,stopResult=null,videoDraws=0;
+let luma=200,lastHome,videoControlFrames=0,videoPress,receiver,started,renderLoop,presented,musicControl,lastNotice,homeFrames=0,videoReady=true,clock=10000,closedViews=0,stopResult=null,videoDraws=0;
 const signals={},profiles=[],musicCommands=[],startViewports=[],viewports=[];
 const sharedSettings=[],settingValues={certDateTolerance:false},settingsClicks=[];let settingsChanged,openSettings;
 class BackendClient extends EventEmitter {
@@ -19,7 +19,7 @@ const ctx={ui:{onClick:(id,fn)=>{clicks[id]=fn;},onVisible:fn=>visible.push(fn),
     settings:{get:key=>settingValues[key],onChange:fn=>{settingsChanged=fn;}}};
 ctx.display.contentSize=()=>({w:1600,h:Math.floor((ctx.display.gpu.screen.h-48)/(ctx.display.gpu.screen.w/1600))});
 const modules={path,'./kit/mgu':{run:app=>{started=app.start(ctx);}},'./backend_client':{BackendClient},
-    './video_bridge':{VideoBridge:class{ready(){return videoReady;} detach(){} attach(){return true;}draw(){videoDraws++;}}},
+    './video_bridge':{frameLuma:()=>luma,VideoBridge:class{ready(){return videoReady;} detach(){} attach(){return true;}draw(){videoDraws++;}}},
     './view':{drawHome(c,s,n,l,a,control,settings){homeFrames++;musicControl=control;lastNotice=n;openSettings=settings;lastHome=s;},drawVideoControls(c,w,h,o,press){videoControlFrames++;videoPress=press;}},'./logo_bridge':{LogoBridge:class{draw(){}}},
     './music_artwork_bridge':{MusicArtworkBridge:class{update(){}drop(){}}},
     './brand_logo':{register(){}},'./i18n':require('../apps/base_player/i18n'),'./app_settings':{save(dir,value){sharedSettings.push([dir,value]);return true;}},'./kit/record':{setImage(){}},'./diagnose':{diagnose:()=>'',wifiDirect:()=>''}};
@@ -108,6 +108,13 @@ Promise.resolve(started).then(async()=>{
     clock+=60000; await renderLoop();assert.strictEqual(presented,true,'an unchanged mirrored screen stays fullscreen');
     const drawsBefore=videoControlFrames; ctx.display.onPresentationInput(); await renderLoop();
     assert(videoControlFrames>drawsBefore,'video controls are drawn while the bar is shown');
+    // A black mirrored picture (locked phone) returns to the page after 6 s.
+    receiver.emit('state',{profile:'auto',phase:'mirroring',mode:'mirror',connected:true,file:'/dev/shm/x',frame:{generation:'b',sequence:1,width:1920,height:720}});
+    clock+=10000; await renderLoop(); assert.strictEqual(presented,true,'a bright picture stays fullscreen');
+    luma=16; clock+=1000; await renderLoop(); assert.strictEqual(presented,true,'a short dark scene stays fullscreen');
+    clock+=7000; await renderLoop(); assert.strictEqual(presented,false,'a black picture for 6 s shows the page');
+    assert(lastNotice===require('../apps/base_player/i18n').t('video_black')||/not confirmed/.test(lastNotice));
+    luma=180; clock+=1000; await renderLoop(); assert.strictEqual(presented,true,'the picture returns: fullscreen again');
     const ends=receiver.videoEnds||0; receiver.emit('state',{profile:'auto',phase:'mirroring',mode:'hls',supportsVideoStop:true,connected:true,frame:{generation:'s2',sequence:1,width:1600,height:560}});
     videoPress('END_VIDEO'); assert.strictEqual(receiver.videoEnds,ends+1,'Stop video on the page ends the video');
     console.log('Automatic audio/video UI switching, acknowledged stop/close and visible retry on disconnect failure passed');
