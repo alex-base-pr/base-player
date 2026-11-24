@@ -66,6 +66,13 @@ function wrap(c, value, size, max, lines) {
     return out;
 }
 
+// The kit's quad takes exactly four points; a triangle is a quad with an
+// extra point in the middle of its last edge.
+function tri(c, pts, col) {
+    const a = pts[1], b = pts[2];
+    c.quad([pts[0], a, [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], b], col);
+}
+
 /* ---------- line icons, one stroke, drawn around a centre ---------- */
 const icon = {
     airplay(c, x, y, s, col) {
@@ -73,7 +80,7 @@ const icon = {
         const l = x - s / 2, r = x + s / 2, top = y - s * 0.42, bot = y + s * 0.20, gap = s * 0.20, w = Math.max(2, Math.min(STROKE, s * 0.06));
         c.line(l, top, r, top, w, col); c.line(l, top, l, bot, w, col); c.line(r, top, r, bot, w, col);
         c.line(l, bot, x - gap, bot, w, col); c.line(x + gap, bot, r, bot, w, col);
-        c.quad([[x, y + s * 0.02], [x + s * 0.24, y + s * 0.42], [x - s * 0.24, y + s * 0.42]], col);
+        tri(c, [[x, y + s * 0.02], [x + s * 0.24, y + s * 0.42], [x - s * 0.24, y + s * 0.42]], col);
     },
     note(c, x, y, s, col) {
         const w = Math.max(STROKE, s * 0.07);
@@ -87,14 +94,14 @@ const icon = {
         c.strokeRoundRect(x - s * 0.27, y - s * 0.46, s * 0.54, s * 0.92, s * 0.09, STROKE, col);
         c.line(x - s * 0.08, y + s * 0.34, x + s * 0.08, y + s * 0.34, STROKE, col);
     },
-    play(c, x, y, s, col) { c.quad([[x - s * 0.28, y - s * 0.38], [x + s * 0.40, y], [x - s * 0.28, y + s * 0.38]], col); },
+    play(c, x, y, s, col) { tri(c, [[x - s * 0.28, y - s * 0.38], [x + s * 0.40, y], [x - s * 0.28, y + s * 0.38]], col); },
     pause(c, x, y, s, col) {
         c.roundRect(x - s * 0.30, y - s * 0.36, s * 0.20, s * 0.72, s * 0.04, col);
         c.roundRect(x + s * 0.10, y - s * 0.36, s * 0.20, s * 0.72, s * 0.04, col);
     },
     skip(c, x, y, s, col, back) {
         const d = back ? -1 : 1;
-        c.quad([[x - d * s * 0.32, y - s * 0.32], [x + d * s * 0.18, y], [x - d * s * 0.32, y + s * 0.32]], col);
+        tri(c, [[x - d * s * 0.32, y - s * 0.32], [x + d * s * 0.18, y], [x - d * s * 0.32, y + s * 0.32]], col);
         c.roundRect(back ? x - s * 0.30 : x + s * 0.20, y - s * 0.32, s * 0.10, s * 0.64, s * 0.03, col);
     },
     shuffle(c, x, y, s, col) {
@@ -102,13 +109,13 @@ const icon = {
         c.line(x - a, y + b, x + a * 0.6, y - b, STROKE, col);
         c.line(x - a, y - b, x - s * 0.06, y - s * 0.02, STROKE, col);
         c.line(x + s * 0.06, y + s * 0.08, x + a * 0.6, y + b, STROKE, col);
-        c.quad([[x + a, y - b], [x + a * 0.55, y - b - s * 0.13], [x + a * 0.55, y - b + s * 0.13]], col);
-        c.quad([[x + a, y + b], [x + a * 0.55, y + b - s * 0.13], [x + a * 0.55, y + b + s * 0.13]], col);
+        tri(c, [[x + a, y - b], [x + a * 0.55, y - b - s * 0.13], [x + a * 0.55, y - b + s * 0.13]], col);
+        tri(c, [[x + a, y + b], [x + a * 0.55, y + b - s * 0.13], [x + a * 0.55, y + b + s * 0.13]], col);
     },
     repeat(c, x, y, s, col, one) {
         c.strokeRoundRect(x - s * 0.42, y - s * 0.26, s * 0.84, s * 0.52, s * 0.16, STROKE, col);
         c.fillRect(x - s * 0.06, y - s * 0.30, s * 0.16, s * 0.09, C.bg);
-        c.quad([[x + s * 0.12, y - s * 0.26], [x - s * 0.04, y - s * 0.38], [x - s * 0.04, y - s * 0.14]], col);
+        tri(c, [[x + s * 0.12, y - s * 0.26], [x - s * 0.04, y - s * 0.38], [x - s * 0.04, y - s * 0.14]], col);
         if (one) text(c, '1', x, y + s * 0.13, s * 0.36, col, { align: 'center' });
     },
     gear(c, x, y, s, col) {
@@ -129,7 +136,7 @@ const icon = {
         c.line(x - s * 0.24, y + s * 0.38, x + s * 0.24, y + s * 0.38, STROKE, col);
     },
     alert(c, x, y, s, col) {
-        c.quad([[x, y - s * 0.46], [x + s * 0.5, y + s * 0.40], [x - s * 0.5, y + s * 0.40]], col);
+        tri(c, [[x, y - s * 0.46], [x + s * 0.5, y + s * 0.40], [x - s * 0.5, y + s * 0.40]], col);
         c.roundRect(x - s * 0.05, y - s * 0.18, s * 0.10, s * 0.32, s * 0.04, C.bg);
         c.circle(x, y + s * 0.26, s * 0.06, C.bg);
     },

@@ -120,6 +120,8 @@ jobs:
           tar -tzf dist/base-player-receiver@*.tgz | grep -qx 'files/p2p_probe.js'
           ! tar -tzf dist/base_player@*.tgz | grep -q '^node_modules/oap-sdk/'
           tar -xzOf dist/base_player@*.tgz package.json | python3 -c "import json,sys;p=json.load(sys.stdin);assert p['mguInternet'] is True and p['mguHmi']==['ID7'],p"
+          mkdir -p .build/kit-render && tar -xzf dist/base_player@*.tgz -C .build/kit-render
+          node airplay/tools/check_kit_render.js .build/kit-render/javascript emulator/fixtures.js
       - name: Check out pinned Store validator
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:

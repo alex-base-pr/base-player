@@ -2,7 +2,7 @@
   "id": "base_player",
   "title": "Base Player",
   "description": "Phone screen and sound on iDrive 7: AirPlay for iPhone, DLNA for Android",
-  "version": "0.4.3",
+  "version": "0.4.4",
   "vendor": "base",
   "loggingId": "BPL1",
   "maxDiskUsage": 67108864,

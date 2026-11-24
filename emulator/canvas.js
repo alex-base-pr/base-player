@@ -57,7 +57,8 @@ function makeCanvas(ctx, w, h) {
             ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, Math.max(0, radius), 0, Math.PI * 2); ctx.fillStyle = color; ctx.fill(); ctx.restore(); return c;
         },
         quad: function (points, color) {
-            if (!points || !points.length) return c;
+            // As the kit's Recorder.quad: exactly four [x, y] points.
+            if (!points || points.length !== 4) throw new Error('quad needs 4 points, got ' + (points && points.length));
             ctx.save(); ctx.beginPath(); ctx.moveTo(points[0][0], points[0][1]);
             for (var i = 1; i < points.length; i++) ctx.lineTo(points[i][0], points[i][1]);
             ctx.closePath(); ctx.fillStyle = color; ctx.fill(); ctx.restore(); return c;
