@@ -486,6 +486,8 @@ const turn = () => new Promise(resolve=>setImmediate(resolve));
     const answer=logWrites.filter(m=>m.log).pop();
     assert(answer && answer.log.lines.length===3 && answer.log.url==='http://192.168.0.1:7105','the app gets the last lines and the page address');
     assert(!logUI.destroyed,'log is a known command');
+    logUI.emit('data',JSON.stringify({command:'ui-error',text:'TypeError: x\n  at drawHome'})+'\n');
+    assert(eventLog.entries.indexOf('page error: TypeError: x at drawHome')>=0,'page errors reach the log');
     assert(/internet (yes|no)/.test(eventLog.header()),'the page header says whether there is internet');
     console.log('Busy audio startup, media reacquisition, focus loss, crash recovery, frontend grace and explicit stop passed');
 })().catch(e=>{console.error(e);process.exitCode=1;});

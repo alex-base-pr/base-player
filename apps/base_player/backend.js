@@ -371,9 +371,13 @@ const server = net.createServer(s => {
             let request; try { request = JSON.parse(line); } catch (e) { s.destroy(); return; }
             if (!request || typeof request.command !== 'string') { s.destroy(); return; }
             heartbeat = Date.now();
-            if (request.command !== 'heartbeat' && request.command !== 'video-viewport' && request.command !== 'log' && request.command !== 'webtv-key')
+            if (request.command !== 'heartbeat' && request.command !== 'video-viewport' && request.command !== 'log' && request.command !== 'webtv-key' && request.command !== 'ui-error')
                 events.add('ui', request.command + (request.profile ? ' ' + request.profile : ''));
-            if (request.command === 'log') {
+            if (request.command === 'ui-error') {
+                if (typeof request.text !== 'string' || request.text.length > 600) { s.destroy(); return; }
+                events.add('page', 'error: ' + request.text.replace(/\s+/g, ' '));
+            }
+            else if (request.command === 'log') {
                 const count = Number.isInteger(request.count) && request.count > 0 && request.count <= 40 ? request.count : 14;
                 if (s.writableLength <= 32768) s.write(JSON.stringify({ log: { lines: events.tail(count), url: events.url(), total: events.entries.length } }) + '\n');
             }

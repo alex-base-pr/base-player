@@ -164,7 +164,16 @@ mgu.run({ async start(ctx) {
     // 10 Hz: the switch between mirroring, a YouTube video and back is
     // picked up within ~100 ms. The video itself is drawn by the native
     // renderer, so this only re-records a small canvas.
-    ctx.loop('MAIN', 10, async () => {
+    // A drawing error leaves the page empty on the car: say why in the event
+    // log (LOG page on the car Wi-Fi), at most once per 5 s.
+    let uiErrorAt = 0;
+    const reportUiError = e => {
+        log.error('Base Player page', e);
+        if (Date.now() - uiErrorAt < 5000) return;
+        uiErrorAt = Date.now();
+        receiver.command('ui-error', { text: String(e && e.stack || e).slice(0, 500) });
+    };
+    const drawPage = async () => {
         const transitioning = !isAudio(state) && state.mode !== 'webtv' && (state.phase === 'loading' ||
             (state.mode === 'waiting' && state.returnMode === 'mirror' && !!state.pin && !state.error &&
                 !state.playlistPending && Date.now() < mirrorResumeUntil));
@@ -198,5 +207,6 @@ mgu.run({ async start(ctx) {
             drawHome(c, Object.assign({}, state, p2pText ? { p2pText } : {}, { webTv: webTvOn() }, logView ? { logView } : {}), notice || diagnosis, logo, artwork, musicControl, press);
         }
         if (!closing) await ui.image('MAIN_GFX', c);
-    });
+    };
+    ctx.loop('MAIN', 10, async () => { try { await drawPage(); } catch (e) { reportUiError(e); } });
 } });
