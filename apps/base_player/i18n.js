@@ -162,6 +162,12 @@ const STRINGS = {
         err_webtv_failed: 'Web TV stopped unexpectedly. Choose Web TV again.',
         err_webtv_missing: 'The Web TV package is missing. Install "Base Player Web TV" in the Store.',
         err_webtv_unavailable: 'Web TV is turned off in Settings or not installed.',
+        log_button: 'Log',
+        log_title: 'Event log',
+        log_page: 'Full log on a phone on the car Wi-Fi:',
+        log_no_wifi: 'Full log: connect a phone to the car Wi-Fi first',
+        log_loading: 'Reading the log …',
+        log_empty: 'Nothing logged yet.',
     },
     uk: {
         status_disconnecting: 'Від’єднуємо …',

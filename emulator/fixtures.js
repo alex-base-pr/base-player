@@ -18,5 +18,12 @@ module.exports = [
   { name: 'Ready, Web TV on', state: { phase: 'idle', webTv: true, webTvAvailable: true } },
   { name: 'Web TV loading', state: { phase: 'loading', mode: 'webtv', webTvPhase: 'loading', webTv: true, webTvAvailable: true } },
   { name: 'Web TV error', state: { phase: 'loading', mode: 'webtv', webTvPhase: 'loading', error: 'webtv_network', webTv: true, webTvAvailable: true } },
+  { name: 'Event log', state: { phase: 'waiting', mode: 'waiting', connected: true, logView: { url: 'http://192.168.1.1:7105', lines: [
+    '09:41:02 app backend started, Base Player 0.4.1, node v8.17.0', '09:41:02 net internet: no', '09:41:20 ui start auto',
+    '09:41:21 state phase=waiting mode=waiting connected=false', '09:41:21 airplay MGU_FEATURES video-modes',
+    '09:42:05 state connected=true', '09:42:07 airplay MGU_AUDIO_PLAY', '09:42:07 state phase=audio mode=audio',
+    '09:43:30 airplay MGU_MODE hls', '09:43:31 airplay MGU_MEDIA_FAILED offline', '09:43:31 diag hls_dns_failed',
+    '09:43:31 state phase=waiting mode=waiting error=offline'] } } },
+  { name: 'Event log, no Wi-Fi', state: { phase: 'idle', logView: { url: '', lines: [], loading: true } } },
   { name: 'Receiver missing', state: { phase: 'idle' }, notice: 'Receiver is missing: install "Base Player receiver" in the Store from the "Releases" source.' },
 ];

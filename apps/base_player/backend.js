@@ -103,8 +103,34 @@ function remoteMusic(request) {
     // must never delay the driver's receiver stop or a profile change.
     musicQueue = musicQueue.then(run, run);
 }
+// One log for everything the owner may need to read back: on the head unit
+// (last lines) and as a page on the car's Wi-Fi (port 7105).
+const { EventLog } = require('./event_log');
+const VERSION = (() => { try { return require('./app.json').version; } catch (e) { return '?'; } })();
+const events = new EventLog({ dataDir: data, secrets: () => [receiver.state.pin, receiver.lastPassword] });
+events.add('app', 'backend started, Base Player ' + VERSION + ', node ' + process.version);
+receiver.on('log', line => events.add('airplay', line));
+webTv.on('log', line => events.add('webtv', line));
+const STATE_FIELDS = ['phase', 'mode', 'connected', 'error', 'audio', 'audioError', 'sender'];
+let loggedState = {}, loggedUplink = null, loggedWebTv = '';
+function logState(state) {
+    const changed = STATE_FIELDS.filter(k => state[k] !== undefined && state[k] !== loggedState[k]);
+    if (!changed.length) return;
+    events.add('state', changed.map(k => k + '=' + state[k]).join(' '));
+    loggedState = Object.assign({}, loggedState, state);
+}
+function logUplink() {
+    const up = resolver.hasUplink();
+    if (up !== loggedUplink) { loggedUplink = up; events.add('net', up ? 'internet: yes (uplink lease)' : 'internet: no'); }
+}
+logUplink();
+const pageHeader = () => 'Base Player ' + VERSION + ' · ' + new Date().toISOString() + ' · internet ' + (resolver.hasUplink() ? 'yes' : 'no') +
+    ' · ' + (receiver.child ? 'receiver on' : 'receiver off') + ' · mode ' + (presentedMedia().mode || '-') +
+    ' · phase ' + (presentedMedia().phase || '-') + (presentedMedia().error ? ' · error ' + presentedMedia().error : '');
+events.listen(pageHeader);
 const diagnostics = [];
 receiver.on('diagnostic', code => {
+    events.add('diag', code);
     diagnostics.push({ time: new Date().toISOString(), code });
     if (diagnostics.length > 60) diagnostics.shift();
     try { fs.writeFileSync(path.join(data, 'diagnostic.json'), JSON.stringify(diagnostics), { mode: 0o600 }); } catch (e) {}
@@ -292,6 +318,7 @@ function graceWithoutUI() {
     }, DISCONNECT_GRACE_MS);
 }
 receiver.on('state', state => {
+    logState(state);
     if (wanted && state.mode === 'audio') standaloneAudio = true;
     else if (wanted && (state.mode === 'mirror' || state.mode === 'hls')) standaloneAudio = false;
     graceWithoutUI(); send(presented());
@@ -311,6 +338,8 @@ dlna.on('state', androidState);
 let webTvAudioPending = false;
 webTv.on('diagnostic', code => receiver.emit('diagnostic', code));
 webTv.on('state', state => {
+    const tv = (state.phase || '') + (state.error ? ' error=' + state.error : '');
+    if (tv !== loggedWebTv) { loggedWebTv = tv; events.add('webtv', 'phase=' + tv); }
     if (state.phase === 'playing' && webTv.child && !route.owned && !webTvAudioPending) {
         webTvAudioPending = true;
         enqueue(() => { webTvAudioPending = false; return ensureAudio(); });
@@ -342,7 +371,13 @@ const server = net.createServer(s => {
             let request; try { request = JSON.parse(line); } catch (e) { s.destroy(); return; }
             if (!request || typeof request.command !== 'string') { s.destroy(); return; }
             heartbeat = Date.now();
-            if (request.command === 'start') {
+            if (request.command !== 'heartbeat' && request.command !== 'video-viewport' && request.command !== 'log' && request.command !== 'webtv-key')
+                events.add('ui', request.command + (request.profile ? ' ' + request.profile : ''));
+            if (request.command === 'log') {
+                const count = Number.isInteger(request.count) && request.count > 0 && request.count <= 40 ? request.count : 14;
+                if (s.writableLength <= 32768) s.write(JSON.stringify({ log: { lines: events.tail(count), url: events.url(), total: events.entries.length } }) + '\n');
+            }
+            else if (request.command === 'start') {
                 const profile = request.profile === undefined ? 'auto' : request.profile;
                 if (profile !== 'auto' && profile !== 'video' && profile !== 'audio') { s.destroy(); return; }
                 if (request.viewport !== undefined) {
@@ -415,6 +450,7 @@ const server = net.createServer(s => {
     s.on('close', () => {
         if (client !== s) return;
         client = null;
+        events.add('ui', 'app view disconnected');
         webTv.close().catch(() => {}); // Web TV has no use without its screen
         if (!receiver.child && !restartTimer && !intentionalStop) { priorityStop().catch(() => {}); return; }
         graceWithoutUI();
@@ -437,6 +473,7 @@ const timer = setInterval(() => {
         return;
     }
     if (client && Date.now() - heartbeat > HEARTBEAT_TIMEOUT_MS) client.destroy();
+    logUplink(); events.flush();
     const installed = webTv.available();
     if (installed !== webTvInstalled) { webTvInstalled = installed; send(); }
     pollMusic();
@@ -459,6 +496,7 @@ function shutdown(code) {
     if (shuttingDown) return;
     shuttingDown = true; clearInterval(timer); clearTimeout(graceTimer); clearTimeout(restartTimer); clearTimeout(stableTimer);
     music.close();
+    events.add('app', 'backend stopping'); events.close();
     if (reportChild) { try { reportChild.kill('SIGKILL'); } catch (e) {} reportChild = null; }
     if (client) client.destroy();
     server.close();

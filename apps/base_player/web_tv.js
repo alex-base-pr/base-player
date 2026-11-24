@@ -67,10 +67,20 @@ class WebTv extends EventEmitter {
             let at;
             while ((at = this.pending.indexOf('\n')) >= 0) {
                 const line = this.pending.slice(0, at).trim(); this.pending = this.pending.slice(at + 1);
+                if (line) this.emit('log', line);
                 this.line(line);
             }
         });
-        if (child.stderr) child.stderr.on('data', () => {});
+        let pendingError = '';
+        if (child.stderr) child.stderr.on('data', chunk => {
+            if (this.child !== child) return;
+            pendingError = (pendingError + String(chunk)).slice(-8192);
+            let at;
+            while ((at = pendingError.indexOf('\n')) >= 0) {
+                const line = pendingError.slice(0, at).trim(); pendingError = pendingError.slice(at + 1);
+                if (line) this.emit('log', line);
+            }
+        });
         let ended = false;
         const finish = () => {
             if (ended) return; ended = true;

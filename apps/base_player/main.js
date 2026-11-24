@@ -30,8 +30,17 @@ mgu.run({ async start(ctx) {
     // A control drawn on the page presses the bar button it stands for, as
     // the HMI does (for Settings: the kit's sheet over the page, else the
     // HMI's settings list).
+    // LOG in the header: the event log's last lines on this screen.
+    let logView = null, logAsked = 0;
+    receiver.on('log', answer => { if (logView) logView = { lines: answer.lines, url: answer.url || '', loading: false }; });
     const press = id => {
         if (id === 'WEBTV') { startWebTv(); return; }
+        if (id === 'LOG') {
+            logView = logView ? null : { lines: [], url: '', loading: true };
+            if (logView) { logAsked = Date.now(); receiver.requestLog(12); }
+            log.info('Base Player log view: ' + (logView ? 'open' : 'closed'));
+            return;
+        }
         if (ctx.display && typeof ctx.display._click === 'function') ctx.display._click(id);
         else if (id === 'BTN_SETTINGS' && ui.open) ui.open('SETTINGS');
     };
@@ -185,7 +194,8 @@ mgu.run({ async start(ctx) {
             if (!unreachable()) diagnosis = '';
             else if (Date.now() - diagnosedAt > 2000) { diagnosedAt = Date.now(); diagnosis = diagnose(uid); }
             if (Date.now() - p2pAt > 10000) { p2pAt = Date.now(); p2pText = wifiDirect(); }
-            drawHome(c, Object.assign({}, state, p2pText ? { p2pText } : {}, { webTv: webTvOn() }), notice || diagnosis, logo, artwork, musicControl, press);
+            if (logView && Date.now() - logAsked > 1000) { logAsked = Date.now(); receiver.requestLog(12); }
+            drawHome(c, Object.assign({}, state, p2pText ? { p2pText } : {}, { webTv: webTvOn() }, logView ? { logView } : {}), notice || diagnosis, logo, artwork, musicControl, press);
         }
         if (!closing) await ui.image('MAIN_GFX', c);
     });

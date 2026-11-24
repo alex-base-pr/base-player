@@ -38,6 +38,7 @@ class BackendClient extends EventEmitter {
                 try {
                     const m = JSON.parse(line);
                     if (m && m.state) this.update(m.state);
+                    if (m && m.log && Array.isArray(m.log.lines)) { this.log = m.log; this.emit('log', m.log); }
                     if (m && m.reply && m.reply.command === 'stop' && this.stopRequest &&
                         this.stopRequest.socket === s && m.reply.id === this.stopRequest.id) {
                         this.finishStop(m.reply.ok === true ? null : 'receiver_stop_failed');
@@ -115,6 +116,8 @@ class BackendClient extends EventEmitter {
     webTvStart() { return this.command('webtv-start'); }
     webTvKey(key) { return WEB_TV_KEYS.indexOf(key) >= 0 && this.command('webtv-key', { key }); }
     webTvStop() { return this.command('webtv-stop'); }
+    // Last lines of the backend's event log; the answer arrives as 'log'.
+    requestLog(count) { return this.command('log', { count: count || 14 }); }
     finishStop(error) {
         const request = this.stopRequest;
         if (!request) return;

@@ -268,6 +268,8 @@ class Receiver extends EventEmitter {
             let at;
             while ((at = pendingLog.indexOf('\n')) >= 0) {
                 const line = pendingLog.slice(0, at).trim(); pendingLog = pendingLog.slice(at + 1);
+                // The event log cuts codes and URL paths before it stores a line.
+                if (line) this.emit('log', line);
                 if (/^MGU_CRASH$|^\S+\([^)]*\)\s*\[0x[0-9a-f]+\]$|^\[0x[0-9a-f]+\]$|GStreamer error \((video|audio)\):|assertion|assert.*failed|critical|error|could not|failed|cannot|not found|not-linked|not-negotiated|streaming stopped|Forbidden/i.test(line)) {
                     // Bounded error text only. Never persist a stream URL, IP or
                     // the current pairing password in the diagnostic ring.

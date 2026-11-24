@@ -1,7 +1,7 @@
 'use strict';
 const assert = require('assert'), vm = require('vm'), fs = require('fs'), EventEmitter = require('events');
 const sockets = [], writes = [], timers = [], startupOrder = [], reports = [], persisted = [];
-let receiver, route, accept, remote, player, dlna, screen, webTv, webTvSetting = false, uplinkOnline = false;
+let eventLog, receiver, route, accept, remote, player, dlna, screen, webTv, webTvSetting = false, uplinkOnline = false;
 class Receiver extends EventEmitter {
     constructor(options) { super(); receiver = this; this.runtime = options.runtime; this.musicDirectory = ''; this.options = options; this.state = {}; this.child = null; this.starts = 0; this.stops = 0; }
     start(options) { startupOrder.push('start'); this.child = {}; this.features = {}; this.starts++; this.lastOptions = options; const profile=options && options.profile || 'auto'; this.musicDirectory='/private/music-'+this.starts; this.update({phase:'waiting', profile, mode:profile==='audio'?'audio':'waiting', connected:false,playlistPending:false,returnMode:'waiting',frame:null,music:{title:'',epoch:null,controls:{}},error:null}); this.emit('music-directory',this.musicDirectory); return true; }
@@ -38,6 +38,10 @@ const modules = {
     './audio_route':{AudioRoute,AUDIO_SINK:'fakesink'},'./kit/signals':{},
     './music_controls':{MusicControls},
     './app_settings':{webTv:()=>webTvSetting},
+    './app.json':{version:'9.9.9'},
+    './event_log':{EventLog:class{constructor(o){eventLog=this;this.options=o;this.entries=[];this.listening=0;this.flushes=0;}
+        add(source,text){this.entries.push(source+' '+text);} tail(n){return this.entries.slice(-n);} url(){return 'http://192.168.0.1:7105';}
+        listen(header){this.listening++;this.header=header;} flush(){this.flushes++;} close(){this.closed=true;}}},
     './web_tv':{KEYS:['Up','Down','Left','Right','Enter','Back'],WebTv:class extends EventEmitter{constructor(o){super();webTv=this;this.options=o;this.child=null;this.installed=false;this.starts=0;this.closes=0;this.keys=[];this.state={phase:'stopped',frame:null,file:'',error:null};}
         available(){return this.installed;}presentation(){return this.child?Object.assign({},this.state):null;}
         update(f){Object.assign(this.state,f);this.emit('state',Object.assign({},this.state));}
@@ -466,5 +470,22 @@ const turn = () => new Promise(resolve=>setImmediate(resolve));
     tvUI.emit('data','{"command":"webtv-key","key":"Escape"}\n');
     assert(tvUI.destroyed,'keys outside the list end the connection');
     assert(!webTv.child,'Web TV ends with its screen'); assert.deepStrictEqual(webTv.keys,['Up','Enter']);
+    // Event log: one per backend, a page on the car's Wi-Fi, last lines on request.
+    assert(eventLog.listening>=1,'the log page is served');
+    assert(eventLog.entries.some(l=>/^app backend started, Base Player 9\.9\.9/.test(l)),'start and version are logged');
+    receiver.emit('log','MGU_MODE hls');
+    assert(eventLog.entries.indexOf('airplay MGU_MODE hls')>=0,'receiver output is logged');
+    webTv.emit('log','WEBTV phase ready');
+    assert(eventLog.entries.indexOf('webtv WEBTV phase ready')>=0,'Web TV output is logged');
+    receiver.update({phase:'error',error:'hls_dns_failed'});
+    assert(eventLog.entries.some(l=>/^state .*error=hls_dns_failed/.test(l)),'state changes are logged');
+    const logUI=new EventEmitter(), logWrites=[]; logUI.destroyed=false; logUI.writableLength=0;
+    logUI.setEncoding=()=>{}; logUI.write=d=>logWrites.push(JSON.parse(d)); logUI.destroy=()=>{logUI.destroyed=true;logUI.emit('close');};
+    tvUI.destroy(); accept(logUI);
+    logUI.emit('data','{"command":"log","count":3}\n');
+    const answer=logWrites.filter(m=>m.log).pop();
+    assert(answer && answer.log.lines.length===3 && answer.log.url==='http://192.168.0.1:7105','the app gets the last lines and the page address');
+    assert(!logUI.destroyed,'log is a known command');
+    assert(/internet (yes|no)/.test(eventLog.header()),'the page header says whether there is internet');
     console.log('Busy audio startup, media reacquisition, focus loss, crash recovery, frontend grace and explicit stop passed');
 })().catch(e=>{console.error(e);process.exitCode=1;});

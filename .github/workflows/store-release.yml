@@ -85,7 +85,7 @@ jobs:
           make -C native test test-gst
       - name: JavaScript and Store contract tests
         run: |
-          node airplay/test_audio_route.js && node airplay/test_backend.js && node airplay/test_receiver.js
+          node airplay/test_audio_route.js && node airplay/test_backend.js && node airplay/test_event_log.js && node airplay/test_receiver.js
           node airplay/test_receiver_disconnect.js
           node airplay/test_frontend_lifecycle.js && node airplay/test_video_bridge.js && node airplay/test_logo_bridge.js
           node airplay/test_backend_client.js && node airplay/test_diagnose.js && node airplay/test_network.js && node airplay/test_resolver.js

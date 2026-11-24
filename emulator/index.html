@@ -374,6 +374,12 @@ const STRINGS = {
         err_webtv_failed: 'Web TV stopped unexpectedly. Choose Web TV again.',
         err_webtv_missing: 'The Web TV package is missing. Install "Base Player Web TV" in the Store.',
         err_webtv_unavailable: 'Web TV is turned off in Settings or not installed.',
+        log_button: 'Log',
+        log_title: 'Event log',
+        log_page: 'Full log on a phone on the car Wi-Fi:',
+        log_no_wifi: 'Full log: connect a phone to the car Wi-Fi first',
+        log_loading: 'Reading the log …',
+        log_empty: 'Nothing logged yet.',
     },
     uk: {
         status_disconnecting: 'Від’єднуємо …',
@@ -645,7 +651,13 @@ function header(c, state, status, statusColor, logo, onButton) {
     if (onButton) {
         icon.gear(c, X1 - 20, 32, 32, C.dim);
         if (c.target) c.target(X1 - 50, 6, 58, 52, () => onButton('BTN_SETTINGS'), 'settings', 8);
-        right = X1 - 70;
+        // LOG opens (and closes) the event log page
+        const open = !!state.logView;
+        c.roundRect(X1 - 156, 14, 82, 36, 6, open ? C.selTint : C.bar);
+        if (open) c.fillRect(X1 - 156, 46, 82, 4, C.sel);
+        label(c, t('log_button'), X1 - 115, 39, 18, open ? C.ink : C.sub, { align: 'center' });
+        if (c.target) c.target(X1 - 160, 6, 90, 52, () => onButton('LOG'), 'log', 8);
+        right = X1 - 176;
     }
     // a status pill as the kit draws them, in normal case
     const w = width(c, status, 20) + 46;
@@ -769,6 +781,20 @@ function drawMusic(c, state, artwork, onControl) {
     if (!Object.keys(controls).some(k => controls[k])) text(c, t('start_on_iphone'), x, 470, 22, C.dim);
 }
 
+function drawLog(c, view) {
+    // Last lines of the event log, newest at the foot; the full log is a
+    // page on the car's Wi-Fi.
+    label(c, t('log_title'), X0, 104, 22, C.ink);
+    text(c, fit(c, view.url ? t('log_page') + ' ' + view.url : t('log_no_wifi'), 22, 1080), X1, 104, 22, C.mLight, { align: 'right' });
+    c.fillRect(X0, 118, X1 - X0, 1, C.hair);
+    const lines = (view.lines || []).slice(-12);
+    if (!lines.length) text(c, view.loading ? t('log_loading') : t('log_empty'), X0, 160, 24, C.dim);
+    lines.forEach((line, i) => {
+        const warn = /error|fail|diag|cannot|could not/i.test(line);
+        text(c, fit(c, line, 21, X1 - X0), X0, 150 + i * 30, 21, warn ? C.amberText : C.sub);
+    });
+}
+
 /* ---------- page ---------- */
 function drawHome(c, state, notice, logo, artwork, onControl, onButton) {
     const original = c, sy = Math.min(1, (c.h || H) / H);
@@ -806,6 +832,7 @@ function drawHome(c, state, notice, logo, artwork, onControl, onButton) {
         : state.phase === 'error' ? t('status_check') : busy || loading ? t('status_wait') : state.pin ? t('status_ready') : t('status_off');
     const statusColor = connected || webTv ? C.mLight : state.phase === 'error' || state.error ? C.amber : state.pin ? '#ffffff' : C.dim;
     header(c, state, status, statusColor, logo, onButton);
+    if (state.logView) { drawLog(c, state.logView); return; }
 
     // The reason something failed, and what to do about it.
     const errText = code => { const key = 'err_' + code; return code && t(key) !== key ? t(key) : ''; };
@@ -859,6 +886,13 @@ module.exports = [
   { name: 'Ready, Web TV on', state: { phase: 'idle', webTv: true, webTvAvailable: true } },
   { name: 'Web TV loading', state: { phase: 'loading', mode: 'webtv', webTvPhase: 'loading', webTv: true, webTvAvailable: true } },
   { name: 'Web TV error', state: { phase: 'loading', mode: 'webtv', webTvPhase: 'loading', error: 'webtv_network', webTv: true, webTvAvailable: true } },
+  { name: 'Event log', state: { phase: 'waiting', mode: 'waiting', connected: true, logView: { url: 'http://192.168.1.1:7105', lines: [
+    '09:41:02 app backend started, Base Player 0.4.1, node v8.17.0', '09:41:02 net internet: no', '09:41:20 ui start auto',
+    '09:41:21 state phase=waiting mode=waiting connected=false', '09:41:21 airplay MGU_FEATURES video-modes',
+    '09:42:05 state connected=true', '09:42:07 airplay MGU_AUDIO_PLAY', '09:42:07 state phase=audio mode=audio',
+    '09:43:30 airplay MGU_MODE hls', '09:43:31 airplay MGU_MEDIA_FAILED offline', '09:43:31 diag hls_dns_failed',
+    '09:43:31 state phase=waiting mode=waiting error=offline'] } } },
+  { name: 'Event log, no Wi-Fi', state: { phase: 'idle', logView: { url: '', lines: [], loading: true } } },
   { name: 'Receiver missing', state: { phase: 'idle' }, notice: 'Receiver is missing: install "Base Player receiver" in the Store from the "Releases" source.' },
 ];
 

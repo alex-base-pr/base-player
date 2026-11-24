@@ -196,7 +196,13 @@ function header(c, state, status, statusColor, logo, onButton) {
     if (onButton) {
         icon.gear(c, X1 - 20, 32, 32, C.dim);
         if (c.target) c.target(X1 - 50, 6, 58, 52, () => onButton('BTN_SETTINGS'), 'settings', 8);
-        right = X1 - 70;
+        // LOG opens (and closes) the event log page
+        const open = !!state.logView;
+        c.roundRect(X1 - 156, 14, 82, 36, 6, open ? C.selTint : C.bar);
+        if (open) c.fillRect(X1 - 156, 46, 82, 4, C.sel);
+        label(c, t('log_button'), X1 - 115, 39, 18, open ? C.ink : C.sub, { align: 'center' });
+        if (c.target) c.target(X1 - 160, 6, 90, 52, () => onButton('LOG'), 'log', 8);
+        right = X1 - 176;
     }
     // a status pill as the kit draws them, in normal case
     const w = width(c, status, 20) + 46;
@@ -320,6 +326,20 @@ function drawMusic(c, state, artwork, onControl) {
     if (!Object.keys(controls).some(k => controls[k])) text(c, t('start_on_iphone'), x, 470, 22, C.dim);
 }
 
+function drawLog(c, view) {
+    // Last lines of the event log, newest at the foot; the full log is a
+    // page on the car's Wi-Fi.
+    label(c, t('log_title'), X0, 104, 22, C.ink);
+    text(c, fit(c, view.url ? t('log_page') + ' ' + view.url : t('log_no_wifi'), 22, 1080), X1, 104, 22, C.mLight, { align: 'right' });
+    c.fillRect(X0, 118, X1 - X0, 1, C.hair);
+    const lines = (view.lines || []).slice(-12);
+    if (!lines.length) text(c, view.loading ? t('log_loading') : t('log_empty'), X0, 160, 24, C.dim);
+    lines.forEach((line, i) => {
+        const warn = /error|fail|diag|cannot|could not/i.test(line);
+        text(c, fit(c, line, 21, X1 - X0), X0, 150 + i * 30, 21, warn ? C.amberText : C.sub);
+    });
+}
+
 /* ---------- page ---------- */
 function drawHome(c, state, notice, logo, artwork, onControl, onButton) {
     const original = c, sy = Math.min(1, (c.h || H) / H);
@@ -357,6 +377,7 @@ function drawHome(c, state, notice, logo, artwork, onControl, onButton) {
         : state.phase === 'error' ? t('status_check') : busy || loading ? t('status_wait') : state.pin ? t('status_ready') : t('status_off');
     const statusColor = connected || webTv ? C.mLight : state.phase === 'error' || state.error ? C.amber : state.pin ? '#ffffff' : C.dim;
     header(c, state, status, statusColor, logo, onButton);
+    if (state.logView) { drawLog(c, state.logView); return; }
 
     // The reason something failed, and what to do about it.
     const errText = code => { const key = 'err_' + code; return code && t(key) !== key ? t(key) : ''; };
